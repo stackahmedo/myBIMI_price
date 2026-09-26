@@ -1,36 +1,93 @@
 @import "tailwindcss";
 
+/* -------------------------------------------------------------
+   BIMI TAG PRO - PHYSICAL A4 PRINT ENGINE
+   Exact 210mm x 297mm A4 Portrait Geometry
+   2 Columns x 4 Rows = 8 Cards Per Page (90mm x 65mm standard)
+   ------------------------------------------------------------- */
+
+@media screen {
+  #print-portal-root {
+    display: none !important;
+  }
+}
+
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 6mm;
+    margin: 0mm;
   }
 
-  body {
-    background-color: white !important;
-    color: black !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* Only show the printable sheet */
-  body * {
-    visibility: hidden;
-  }
-
-  #printable-price-tags-sheet,
-  #printable-price-tags-sheet * {
-    visibility: visible;
-  }
-
-  #printable-price-tags-sheet {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100% !important;
-    padding: 0 !important;
+  html, body {
     margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely remove the screen application UI from print flow */
+  #root {
+    display: none !important;
+  }
+
+  /* Display the dedicated multi-page physical print portal */
+  #print-portal-root {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-page-a4 {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 0 auto !important;
+    padding: 14mm 13mm !important;
+    display: grid !important;
+    grid-template-columns: 90mm 90mm !important;
+    grid-template-rows: 65mm 65mm 65mm 65mm !important;
+    column-gap: 4mm !important;
+    row-gap: 3mm !important;
+    justify-content: center !important;
+    align-content: center !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+
+  .print-page-a4:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .print-card-box {
+    width: 90mm !important;
+    height: 65mm !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .print-card-box svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }

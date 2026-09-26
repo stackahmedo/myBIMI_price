@@ -367,7 +367,7 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
         <g id="Tax_Ex_Label" transform="translate(510, 0)">
           <text x="75" y="832" textAnchor="middle" className="card-sans" fontSize="48" fontWeight="800" fill="#000000">税 抜</text>
           <line x1="0" y1="849" x2="150" y2="849" stroke="#111111" strokeWidth="3" />
-          <text x="75" y="891" text-anchor="middle" className="card-sans" fontSize="36" fontWeight="700" fill="#000000">(本体価格)</text>
+          <text x="75" y="891" textAnchor="middle" className="card-sans" fontSize="36" fontWeight="700" fill="#000000">(本体価格)</text>
         </g>
 
         <line x1="700" y1="794" x2="700" y2="905" stroke="#cfcfcf" strokeWidth="3" />
