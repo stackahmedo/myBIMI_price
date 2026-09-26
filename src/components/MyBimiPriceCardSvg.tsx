@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Product } from '../types/inventory';
 
 interface MyBimiPriceCardProps {
@@ -103,12 +103,15 @@ export const getMyBimiCardSvgString = (product: Product): string => {
   let enStartY = 475;
 
   if (jpLines.length > 1) {
-    jpFontSize = rawJp.length <= 26 ? 56 : 48;
-    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}">${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}">${escapeXml(jpLines[1])}</tspan>`;
+    jpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
+    const w0 = Math.min(1360, Math.round(jpLines[0].length * jpFontSize * 1.05));
+    const w1 = Math.min(1360, Math.round(jpLines[1].length * jpFontSize * 1.05));
+    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}" textLength="${w1}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[1])}</tspan>`;
     enStartY = 335 + jpFontSize + 12 + 62;
   } else {
-    jpFontSize = rawJp.length <= 12 ? 76 : (rawJp.length <= 17 ? 64 : 54);
-    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}">${escapeXml(jpLines[0])}</tspan>`;
+    jpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
+    const w0 = Math.min(1360, Math.round(jpLines[0].length * jpFontSize * 1.05));
+    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[0])}</tspan>`;
     enStartY = 475;
   }
 
@@ -119,34 +122,44 @@ export const getMyBimiCardSvgString = (product: Product): string => {
   let enTspan = '';
 
   if (enLines.length > 1) {
-    enFontSize = rawEn.length <= 34 ? 54 : 44;
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}">${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}">${escapeXml(enLines[1])}</tspan>`;
+    enFontSize = rawEn.length <= 30 ? 54 : 44;
+    const w0 = Math.min(1360, Math.round(enLines[0].length * enFontSize * 0.65));
+    const w1 = Math.min(1360, Math.round(enLines[1].length * enFontSize * 0.65));
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}" textLength="${w1}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[1])}</tspan>`;
   } else {
     enFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}">${escapeXml(enLines[0])}</tspan>`;
+    const w0 = Math.min(1360, Math.round(enLines[0].length * enFontSize * 0.65));
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[0])}</tspan>`;
   }
 
-  // 3. Weight Typography
-  const weightFontSize = weightStr.length <= 6 ? 95 : (weightStr.length <= 10 ? 80 : 66);
+  // 3. Weight Typography (Strictly constrained within 420px to avoid right-side collision)
+  const weightFontSize = weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46));
+  const weightTextLen = Math.min(420, Math.round(weightStr.length * weightFontSize * 0.6));
 
-  // 4. Origin Typography (Positioned under weight section on left)
-  const originFontSize = originStr.length > 12 ? 40 : (originStr.length > 9 ? 46 : 52);
+  // 4. Origin Typography (Positioned strictly on left under weight section, strictly capped at 420px to never overlap Tax box at x=510)
+  const originFontSize = originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26));
+  const originTextLen = Math.min(420, Math.round(originStr.length * originFontSize * 0.65));
 
-  // 5. Hero Price Typography (Right-anchored)
+  // 5. Hero Price Typography (Right-anchored, dynamically scaled and clamped to never collide with left tax box at x=510-660)
   const pExLen = taxEx.length;
-  let priceFontSize = 330;
-  if (pExLen >= 6) {
-    priceFontSize = 230;
+  let priceFontSize = 320;
+  if (pExLen >= 7) {
+    priceFontSize = 160;
+  } else if (pExLen >= 6) {
+    priceFontSize = 195;
   } else if (pExLen === 5) {
-    priceFontSize = 275;
+    priceFontSize = 240;
   } else if (pExLen === 4) {
-    priceFontSize = 310;
+    priceFontSize = 280;
   } else {
-    priceFontSize = 330;
+    priceFontSize = 320;
   }
+  const maxPriceExWidth = 570;
+  const estPriceWidth = Math.round(pExLen * priceFontSize * 0.62);
+  const priceExTextLenAttr = estPriceWidth > maxPriceExWidth ? `textLength="${maxPriceExWidth}" lengthAdjust="spacingAndGlyphs"` : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1507 1044" width="1507" height="1044">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1507 1044" width="1507" height="1044" style="text-rendering: geometricPrecision; shape-rendering: geometricPrecision;">
   <defs>
     <linearGradient id="headerGrad" x1="0" x2="1" y1="0" y2="1">
       <stop offset="0%" stop-color="#00603F"/>
@@ -156,10 +169,19 @@ export const getMyBimiCardSvgString = (product: Product): string => {
       <stop offset="0%" stop-color="#00604A"/>
       <stop offset="100%" stop-color="#00735B"/>
     </linearGradient>
+    <clipPath id="titleJpClip">
+      <rect x="56" y="240" width="1395" height="190" />
+    </clipPath>
+    <clipPath id="titleEnClip">
+      <rect x="56" y="420" width="1395" height="180" />
+    </clipPath>
+    <clipPath id="originSafeClip">
+      <rect x="56" y="800" width="440" height="90" />
+    </clipPath>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;800;900&amp;family=Outfit:wght@700;800;900&amp;family=Inter:wght@600;800;900&amp;display=swap');
-      .sans { font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; }
-      .eng  { font-family: 'Outfit', 'Inter', -apple-system, sans-serif; }
+      .sans { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif; }
+      .eng  { font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     </style>
   </defs>
 
@@ -180,22 +202,28 @@ export const getMyBimiCardSvgString = (product: Product): string => {
   <text id="Header_JP" x="1060" y="128" class="sans" font-size="59" font-weight="800" fill="#ffffff">新鮮で美味しい</text>
   <text id="Header_EN" x="1080" y="185" class="eng" font-size="43" font-weight="500" fill="#ffffff">Fresh &amp; Delicious</text>
 
-  <!-- Product Names (Strictly bounded above y=520) -->
-  <text id="Product_Name_JP" class="sans" font-weight="900" fill="#050505">
-    ${jpTspan}
-  </text>
-  <text id="Product_Name_EN" class="eng" font-weight="900" fill="#050505">
-    ${enTspan}
-  </text>
+  <!-- Product Names (Strictly bounded above y=520, clip paths and textLength prevent cross-browser overflow) -->
+  <g clip-path="url(#titleJpClip)">
+    <text id="Product_Name_JP" class="sans" font-weight="900" fill="#050505">
+      ${jpTspan}
+    </text>
+  </g>
+  <g clip-path="url(#titleEnClip)">
+    <text id="Product_Name_EN" class="eng" font-weight="900" fill="#050505">
+      ${enTspan}
+    </text>
+  </g>
 
-  <!-- Weight section (Left side, guaranteed vertical space below title) -->
-  <text id="Weight_Main" x="64" y="683" class="eng" font-size="${weightFontSize}" font-weight="900" fill="#000000">${escapeXml(weightStr)}</text>
+  <!-- Weight section (Left side, guaranteed safe width <= 420px) -->
+  <text id="Weight_Main" x="64" y="683" class="eng" font-size="${weightFontSize}" font-weight="900" fill="#000000" textLength="${weightTextLen}" lengthAdjust="spacingAndGlyphs">${escapeXml(weightStr)}</text>
 
-  <!-- Origin section (Printed directly under weight/unit section on left side) -->
-  <text id="Product_Origin" x="64" y="855" class="sans" font-size="${originFontSize}" font-weight="800" fill="#000000">${escapeXml(originStr)}</text>
+  <!-- Origin section (Left side, strictly capped at 420px width so it NEVER collides with Tax Box at x=510) -->
+  <g clip-path="url(#originSafeClip)">
+    <text id="Product_Origin" x="64" y="855" class="sans" font-size="${originFontSize}" font-weight="800" fill="#000000" textLength="${originTextLen}" lengthAdjust="spacingAndGlyphs">${escapeXml(originStr)}</text>
+  </g>
 
-  <!-- Hero Tax-Ex Price (Right anchored with dynamic font scale) -->
-  <text id="Price_ExTax" x="1285" y="768" text-anchor="end" class="eng" font-size="${priceFontSize}" font-weight="900" fill="#df0011">${taxEx}</text>
+  <!-- Hero Tax-Ex Price (Right anchored with dynamic font scale and max-width clamp) -->
+  <text id="Price_ExTax" x="1285" y="768" text-anchor="end" class="eng" font-size="${priceFontSize}" font-weight="900" fill="#df0011" ${priceExTextLenAttr}>${taxEx}</text>
   <text id="Price_ExTax_Yen" x="1440" y="767" text-anchor="end" class="sans" font-size="145" font-weight="900" fill="#df0011">円</text>
 
   <!-- Tax labels group matching official template -->
@@ -239,10 +267,10 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
   let enStartY = 475;
 
   if (jpLines.length > 1) {
-    jpFontSize = rawJp.length <= 26 ? 56 : 48;
+    jpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
     enStartY = 335 + jpFontSize + 12 + 62;
   } else {
-    jpFontSize = rawJp.length <= 12 ? 76 : (rawJp.length <= 17 ? 64 : 54);
+    jpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
     enStartY = 475;
   }
 
@@ -252,29 +280,43 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
   let enFontSize = 80;
 
   if (enLines.length > 1) {
-    enFontSize = rawEn.length <= 34 ? 54 : 44;
+    enFontSize = rawEn.length <= 30 ? 54 : 44;
   } else {
     enFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
   }
 
-  // 3. Weight Typography
-  const weightFontSize = weightStr.length <= 6 ? 95 : (weightStr.length <= 10 ? 80 : 66);
+  // 3. Weight Typography (Strictly constrained within 420px)
+  const weightFontSize = weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46));
+  const weightTextLen = Math.min(420, Math.round(weightStr.length * weightFontSize * 0.6));
 
-  // 4. Origin Typography (Positioned under weight section on left)
-  const originFontSize = originStr.length > 12 ? 40 : (originStr.length > 9 ? 46 : 52);
+  // 4. Origin Typography (Positioned under weight section on left, strictly <= 420px so it never overlaps Tax Box at x=510)
+  const originFontSize = originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26));
+  const originTextLen = Math.min(420, Math.round(originStr.length * originFontSize * 0.65));
 
-  // 5. Hero Price Typography
+  // 5. Hero Price Typography (Right-anchored, dynamically scaled and clamped)
   const pExLen = taxEx.length;
-  let priceFontSize = 330;
-  if (pExLen >= 6) {
-    priceFontSize = 230;
+  let priceFontSize = 320;
+  if (pExLen >= 7) {
+    priceFontSize = 160;
+  } else if (pExLen >= 6) {
+    priceFontSize = 195;
   } else if (pExLen === 5) {
-    priceFontSize = 275;
+    priceFontSize = 240;
   } else if (pExLen === 4) {
-    priceFontSize = 310;
+    priceFontSize = 280;
   } else {
-    priceFontSize = 330;
+    priceFontSize = 320;
   }
+  const maxPriceExWidth = 570;
+  const estPriceWidth = Math.round(pExLen * priceFontSize * 0.62);
+  const priceExTextLength = estPriceWidth > maxPriceExWidth ? maxPriceExWidth : undefined;
+
+  const clipUid = useMemo(() => `c-${product.id || Math.random().toString(36).substr(2, 6)}`, [product.id]);
+
+  const jpWidth0 = Math.min(1360, Math.round((jpLines[0]?.length || 0) * jpFontSize * 1.05));
+  const jpWidth1 = Math.min(1360, Math.round((jpLines[1]?.length || 0) * jpFontSize * 1.05));
+  const enWidth0 = Math.min(1360, Math.round((enLines[0]?.length || 0) * enFontSize * 0.65));
+  const enWidth1 = Math.min(1360, Math.round((enLines[1]?.length || 0) * enFontSize * 0.65));
 
   return (
     <div className={`relative ${className} select-none`}>
@@ -284,7 +326,7 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
       <svg
         viewBox="0 0 1507 1044"
         className="w-full h-auto drop-shadow-sm rounded-lg overflow-hidden bg-white"
-        style={{ aspectRatio: '1507 / 1044' }}
+        style={{ aspectRatio: '1507 / 1044', textRendering: 'geometricPrecision', shapeRendering: 'geometricPrecision' }}
       >
         <defs>
           <linearGradient id="headerGradComp" x1="0" x2="1" y1="0" y2="1">
@@ -295,11 +337,20 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
             <stop offset="0%" stopColor="#00604A" />
             <stop offset="100%" stopColor="#00735B" />
           </linearGradient>
+          <clipPath id={`titleJpClip-${clipUid}`}>
+            <rect x="56" y="240" width="1395" height="190" />
+          </clipPath>
+          <clipPath id={`titleEnClip-${clipUid}`}>
+            <rect x="56" y="420" width="1395" height="180" />
+          </clipPath>
+          <clipPath id={`originSafeClip-${clipUid}`}>
+            <rect x="56" y="800" width="440" height="90" />
+          </clipPath>
           <style>
             {`
               @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;800;900&family=Outfit:wght@700;800;900&display=swap');
-              .card-sans { font-family: 'Noto Sans JP', sans-serif; }
-              .card-eng  { font-family: 'Outfit', sans-serif; }
+              .card-sans { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif; }
+              .card-eng  { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
             `}
           </style>
         </defs>
@@ -321,42 +372,57 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
         <text x="1060" y="128" className="card-sans" fontSize="59" fontWeight="800" fill="#ffffff">新鮮で美味しい</text>
         <text x="1080" y="185" className="card-eng" fontSize="43" fontWeight="500" fill="#ffffff">Fresh &amp; Delicious</text>
 
-        {/* Product Japanese Name */}
-        <text className="card-sans" fontWeight="900" fill="#050505">
-          {jpLines.length > 1 ? (
-            <>
-              <tspan x="64" y="335" fontSize={jpFontSize}>{jpLines[0]}</tspan>
-              <tspan x="64" y={335 + jpFontSize + 12} fontSize={jpFontSize}>{jpLines[1]}</tspan>
-            </>
-          ) : (
-            <tspan x="64" y="375" fontSize={jpFontSize}>{jpLines[0]}</tspan>
-          )}
-        </text>
+        {/* Product Japanese Name (bounded with textLength to ensure cross-browser consistency) */}
+        <g clipPath={`url(#titleJpClip-${clipUid})`}>
+          <text className="card-sans" fontWeight="900" fill="#050505">
+            {jpLines.length > 1 ? (
+              <>
+                <tspan x="64" y="335" fontSize={jpFontSize} textLength={jpWidth0} lengthAdjust="spacingAndGlyphs">{jpLines[0]}</tspan>
+                <tspan x="64" y={335 + jpFontSize + 12} fontSize={jpFontSize} textLength={jpWidth1} lengthAdjust="spacingAndGlyphs">{jpLines[1]}</tspan>
+              </>
+            ) : (
+              <tspan x="64" y="375" fontSize={jpFontSize} textLength={jpWidth0} lengthAdjust="spacingAndGlyphs">{jpLines[0]}</tspan>
+            )}
+          </text>
+        </g>
 
-        {/* Product English Name */}
-        <text className="card-eng" fontWeight="900" fill="#050505">
-          {enLines.length > 1 ? (
-            <>
-              <tspan x="64" y={enStartY} fontSize={enFontSize}>{enLines[0]}</tspan>
-              <tspan x="64" y={enStartY + enFontSize + 10} fontSize={enFontSize}>{enLines[1]}</tspan>
-            </>
-          ) : (
-            <tspan x="64" y={enStartY} fontSize={enFontSize}>{enLines[0]}</tspan>
-          )}
-        </text>
+        {/* Product English Name (bounded with textLength to prevent border clipping) */}
+        <g clipPath={`url(#titleEnClip-${clipUid})`}>
+          <text className="card-eng" fontWeight="900" fill="#050505">
+            {enLines.length > 1 ? (
+              <>
+                <tspan x="64" y={enStartY} fontSize={enFontSize} textLength={enWidth0} lengthAdjust="spacingAndGlyphs">{enLines[0]}</tspan>
+                <tspan x="64" y={enStartY + enFontSize + 10} fontSize={enFontSize} textLength={enWidth1} lengthAdjust="spacingAndGlyphs">{enLines[1]}</tspan>
+              </>
+            ) : (
+              <tspan x="64" y={enStartY} fontSize={enFontSize} textLength={enWidth0} lengthAdjust="spacingAndGlyphs">{enLines[0]}</tspan>
+            )}
+          </text>
+        </g>
 
         {/* Weight Section (Left, safe from titles above) */}
-        <text x="64" y="683" className="card-eng" fontSize={weightFontSize} fontWeight="900" fill="#000000">
+        <text x="64" y="683" className="card-eng" fontSize={weightFontSize} fontWeight="900" fill="#000000" textLength={weightTextLen} lengthAdjust="spacingAndGlyphs">
           {weightStr}
         </text>
 
-        {/* Origin Section (Directly under weight/unit section on left side) */}
-        <text x="64" y="855" className="card-sans" fontSize={originFontSize} fontWeight="800" fill="#000000">
-          {originStr}
-        </text>
+        {/* Origin Section (Directly under weight/unit section on left side, strictly <= 420px) */}
+        <g clipPath={`url(#originSafeClip-${clipUid})`}>
+          <text x="64" y="855" className="card-sans" fontSize={originFontSize} fontWeight="800" fill="#000000" textLength={originTextLen} lengthAdjust="spacingAndGlyphs">
+            {originStr}
+          </text>
+        </g>
 
-        {/* Hero Price & Yen (Red, right-anchored) */}
-        <text x="1285" y="768" textAnchor="end" className="card-eng" fontSize={priceFontSize} fontWeight="900" fill="#df0011">
+        {/* Hero Price & Yen (Red, right-anchored with clamp against left tax box) */}
+        <text
+          x="1285"
+          y="768"
+          textAnchor="end"
+          className="card-eng"
+          fontSize={priceFontSize}
+          fontWeight="900"
+          fill="#df0011"
+          {...(priceExTextLength ? { textLength: priceExTextLength, lengthAdjust: 'spacingAndGlyphs' } : {})}
+        >
           {taxEx}
         </text>
         <text x="1440" y="767" textAnchor="end" className="card-sans" fontSize="145" fontWeight="900" fill="#df0011">
@@ -394,3 +460,4 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
     </div>
   );
 };
+

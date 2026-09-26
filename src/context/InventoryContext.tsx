@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, ProductFolder, StockTransaction, AdminUser, UnitOfMeasure } from '../types/inventory';
+import { Product, ProductFolder, FolderType, StockTransaction, AdminUser, UnitOfMeasure } from '../types/inventory';
 import { INITIAL_FOLDERS, INITIAL_PRODUCTS, INITIAL_TRANSACTIONS, calculateStatus } from '../data/initialData';
 
 interface InventoryContextType {
@@ -34,9 +34,51 @@ interface InventoryContextType {
   batchDeleteProducts: (ids: string[]) => void;
   batchAssignFolder: (ids: string[], folderId: string) => void;
   adjustStock: (id: string, delta: number, reason: string) => void;
-  addFolder: (folderData: { name: string; code: string; description: string; color: string }) => ProductFolder;
+  addFolder: (folderData: {
+    name: string;
+    code: string;
+    description: string;
+    color: string;
+    type?: FolderType;
+    storeLocation?: string;
+    markupPercent?: number;
+  }) => ProductFolder;
   updateFolder: (id: string, updates: Partial<ProductFolder>) => void;
   deleteFolder: (id: string, fallbackFolderId?: string) => void;
+  bulkImportProducts: (
+    items: Array<{
+      serial?: number;
+      sku?: string;
+      product_name_eng: string;
+      product_name_jp?: string;
+      weight_unit?: string;
+      tax_rate?: number;
+      price_without_tax: number;
+      price_with_tax?: number;
+      origin?: string;
+      folderId?: string;
+      category?: string;
+      stockQuantity?: number;
+      barcode?: string;
+      location?: string;
+      supplier?: string;
+    }>,
+    options?: {
+      updateExisting?: boolean;
+      defaultFolderId?: string;
+    }
+  ) => { imported: number; updated: number; total: number };
+  duplicateProductToFolder: (
+    productId: string,
+    targetFolderId: string,
+    customPriceWithoutTax?: number,
+    customTaxRate?: number
+  ) => Product | null;
+  batchDuplicateToFolder: (
+    productIds: string[],
+    targetFolderId: string,
+    priceMultiplier?: number
+  ) => number;
   resetToDemo: () => void;
   exportCSV: (itemsToExport?: Product[], customFilename?: string) => void;
 }
@@ -419,13 +461,24 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
-  const addFolder = (folderData: { name: string; code: string; description: string; color: string }): ProductFolder => {
+  const addFolder = (folderData: {
+    name: string;
+    code: string;
+    description: string;
+    color: string;
+    type?: FolderType;
+    storeLocation?: string;
+    markupPercent?: number;
+  }): ProductFolder => {
     const newFolder: ProductFolder = {
       id: `fld-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: folderData.name.trim(),
       code: folderData.code.trim().toUpperCase(),
       description: folderData.description.trim(),
       color: folderData.color || '#3b82f6',
+      type: folderData.type || 'shop',
+      storeLocation: folderData.storeLocation?.trim(),
+      markupPercent: folderData.markupPercent || 0,
       createdAt: new Date().toISOString(),
     };
     setFolders(prev => [...prev, newFolder]);
@@ -444,6 +497,215 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
     }
     setFolders(prev => prev.filter(f => f.id !== id));
+  };
+
+  const duplicateProductToFolder = (
+    productId: string,
+    targetFolderId: string,
+    customPriceWithoutTax?: number,
+    customTaxRate?: number
+  ): Product | null => {
+    const source = products.find(p => p.id === productId);
+    if (!source) return null;
+
+    const targetFolder = folders.find(f => f.id === targetFolderId);
+    const today = new Date().toISOString().split('T')[0];
+    const maxSerial = products.reduce((max, p) => Math.max(max, p.serial || 0), 0);
+    const serial = maxSerial + 1;
+
+    let priceEx = customPriceWithoutTax !== undefined ? customPriceWithoutTax : source.price_without_tax;
+    if (customPriceWithoutTax === undefined && targetFolder?.markupPercent) {
+      priceEx = Math.round(source.price_without_tax * (1 + targetFolder.markupPercent / 100));
+    }
+    const taxRate = customTaxRate !== undefined ? customTaxRate : (source.tax_rate ?? 8.0);
+    const priceInc = Math.round(priceEx * (1 + taxRate / 100));
+
+    const masterSku = source.masterSku || source.sku;
+    const shopCode = targetFolder?.code?.replace(/[^A-Za-z0-9]/g, '').slice(0, 4) || 'SHP';
+    const newSku = `${masterSku}-${shopCode}`;
+
+    const newProduct: Product = {
+      ...source,
+      id: `prod-shop-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      serial,
+      sku: newSku,
+      masterSku,
+      folderId: targetFolderId,
+      price_without_tax: priceEx,
+      price_with_tax: priceInc,
+      tax_rate: taxRate,
+      sellingPrice: priceInc,
+      unitCost: Math.round(priceEx * 0.7),
+      lastRestocked: today,
+      updatedAt: today,
+    };
+
+    setProducts(prev => [newProduct, ...prev]);
+
+    const tx: StockTransaction = {
+      id: `tx-clone-${Date.now()}`,
+      productId: newProduct.id,
+      productSku: newProduct.sku,
+      productName: newProduct.product_name_eng,
+      type: 'adjustment',
+      quantity: newProduct.stockQuantity,
+      previousStock: 0,
+      newStock: newProduct.stockQuantity,
+      reason: `Multi-Shop Clone: Duplicated into ${targetFolder?.name || 'Shop'} with price ¥${priceEx.toLocaleString()}`,
+      timestamp: new Date().toISOString(),
+      performedBy: adminUser?.name || 'Admin',
+    };
+    setTransactions(tPrev => [tx, ...tPrev]);
+
+    return newProduct;
+  };
+
+  const batchDuplicateToFolder = (
+    productIds: string[],
+    targetFolderId: string,
+    priceMultiplier = 1.0
+  ): number => {
+    let count = 0;
+    productIds.forEach(id => {
+      const source = products.find(p => p.id === id);
+      if (source && source.folderId !== targetFolderId) {
+        const customPrice = Math.round(source.price_without_tax * priceMultiplier);
+        duplicateProductToFolder(id, targetFolderId, customPrice);
+        count++;
+      }
+    });
+    return count;
+  };
+
+  const bulkImportProducts = (
+    items: Array<{
+      serial?: number;
+      sku?: string;
+      product_name_eng: string;
+      product_name_jp?: string;
+      weight_unit?: string;
+      tax_rate?: number;
+      price_without_tax: number;
+      price_with_tax?: number;
+      origin?: string;
+      folderId?: string;
+      category?: string;
+      stockQuantity?: number;
+      barcode?: string;
+      location?: string;
+      supplier?: string;
+    }>,
+    options?: {
+      updateExisting?: boolean;
+      defaultFolderId?: string;
+    }
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+    let maxSerial = products.reduce((max, p) => Math.max(max, p.serial || 0), 0);
+    let imported = 0;
+    let updated = 0;
+
+    const existingSkuMap = new Map(products.map(p => [p.sku.toLowerCase(), p]));
+    const existingSerialMap = new Map(products.map(p => [p.serial, p]));
+    const fallbackFolderId = options?.defaultFolderId || folders[0]?.id || 'fld-shop-tokyo';
+
+    const newProductsList: Product[] = [];
+    const updatedMap = new Map<string, Partial<Product>>();
+
+    items.forEach(item => {
+      const taxRate = item.tax_rate !== undefined && !isNaN(Number(item.tax_rate)) ? Number(item.tax_rate) : 8.0;
+      const priceEx = Math.max(0, Math.round(Number(item.price_without_tax) || 0));
+      const priceInc = item.price_with_tax && !isNaN(Number(item.price_with_tax))
+        ? Math.round(Number(item.price_with_tax))
+        : Math.round(priceEx * (1 + taxRate / 100));
+
+      const matchedExisting =
+        (options?.updateExisting && item.sku && existingSkuMap.get(item.sku.toLowerCase())) ||
+        (options?.updateExisting && item.serial && existingSerialMap.get(item.serial));
+
+      if (matchedExisting) {
+        updatedMap.set(matchedExisting.id, {
+          product_name_eng: item.product_name_eng || matchedExisting.product_name_eng,
+          product_name_jp: item.product_name_jp ?? matchedExisting.product_name_jp,
+          price_without_tax: priceEx,
+          price_with_tax: priceInc,
+          tax_rate: taxRate,
+          sellingPrice: priceInc,
+          weight_unit: item.weight_unit || matchedExisting.weight_unit,
+          origin: (item.origin || matchedExisting.origin).toUpperCase(),
+          folderId: item.folderId || matchedExisting.folderId,
+          stockQuantity: item.stockQuantity !== undefined ? item.stockQuantity : matchedExisting.stockQuantity,
+          updatedAt: today,
+        });
+        updated++;
+      } else {
+        maxSerial++;
+        const serial = item.serial && !existingSerialMap.has(item.serial) ? item.serial : maxSerial;
+        const code = (item.product_name_eng || 'ITEM').replace(/[^A-Za-z0-9]/g, '').substring(0, 4).toUpperCase();
+        const sku = item.sku || `${code}-${String(serial).padStart(3, '0')}`;
+        const stock = item.stockQuantity !== undefined ? item.stockQuantity : 50;
+
+        const newP: Product = {
+          id: `prod-imp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          serial,
+          sku,
+          barcode: item.barcode,
+          masterSku: sku,
+          name: item.product_name_eng.trim(),
+          product_name_eng: item.product_name_eng.trim(),
+          product_name_jp: (item.product_name_jp || item.product_name_eng).trim(),
+          weight_unit: (item.weight_unit || '1 pc').trim(),
+          tax_rate: taxRate,
+          price_without_tax: priceEx,
+          price_with_tax: priceInc,
+          origin: (item.origin || 'UNKNOWN').trim().toUpperCase(),
+          folderId: item.folderId || fallbackFolderId,
+          category: item.category || 'General Halal Food',
+          description: `${item.product_name_jp || item.product_name_eng} (${item.origin || 'Imported'})`,
+          unitCost: Math.round(priceEx * 0.7),
+          sellingPrice: priceInc,
+          stockQuantity: stock,
+          reorderPoint: 15,
+          maxCapacity: 300,
+          unit: 'pcs',
+          location: item.location || 'Store Floor',
+          supplier: item.supplier || `${item.origin || 'General'} Wholesale`,
+          leadTimeDays: 7,
+          lastRestocked: today,
+          updatedAt: today,
+          status: calculateStatus(stock, 15, 300),
+        };
+        newProductsList.push(newP);
+        imported++;
+      }
+    });
+
+    if (newProductsList.length > 0 || updatedMap.size > 0) {
+      setProducts(prev => {
+        let list = prev.map(p => {
+          const upd = updatedMap.get(p.id);
+          return upd ? { ...p, ...upd } : p;
+        });
+        return [...newProductsList, ...list];
+      });
+
+      const tx: StockTransaction = {
+        id: `tx-imp-${Date.now()}`,
+        productId: 'bulk-batch',
+        productSku: 'EXCEL-IMPORT',
+        productName: `Bulk Excel Import (${imported} new, ${updated} updated)`,
+        type: 'inflow',
+        quantity: imported,
+        previousStock: products.length,
+        newStock: products.length + imported,
+        reason: `Bulk Excel/CSV Import: Added ${imported} products, updated ${updated} records.`,
+        timestamp: new Date().toISOString(),
+        performedBy: adminUser?.name || 'Admin',
+      };
+      setTransactions(tPrev => [tx, ...tPrev]);
+    }
+
+    return { imported, updated, total: items.length };
   };
 
   const resetToDemo = () => {
@@ -554,6 +816,9 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addFolder,
         updateFolder,
         deleteFolder,
+        bulkImportProducts,
+        duplicateProductToFolder,
+        batchDuplicateToFolder,
         resetToDemo,
         exportCSV,
       }}

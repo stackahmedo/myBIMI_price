@@ -9,11 +9,45 @@ export const calculateStatus = (stock: number, reorderPoint: number, maxCapacity
 
 export const INITIAL_FOLDERS: ProductFolder[] = [
   {
+    id: 'fld-shop-tokyo',
+    name: 'Tokyo Main Store',
+    code: 'SHOP-TYO',
+    description: 'Flagship Supermarket & Central Distribution Warehouse in Tokyo.',
+    color: '#16a34a',
+    type: 'shop',
+    storeLocation: 'Tokyo Chiyoda-ku · Kanda 3-1',
+    markupPercent: 0,
+    createdAt: '2026-01-01T08:00:00Z',
+  },
+  {
+    id: 'fld-shop-yokohama',
+    name: 'Yokohama Branch Store',
+    code: 'SHOP-YOK',
+    description: 'Retail Halal Groceries & Fresh Cuts Branch in Yokohama Port area.',
+    color: '#ea580c',
+    type: 'shop',
+    storeLocation: 'Yokohama Naka-ku · Yamashita 12',
+    markupPercent: 8,
+    createdAt: '2026-01-05T08:00:00Z',
+  },
+  {
+    id: 'fld-shop-express',
+    name: 'Halal Express Station Stall',
+    code: 'SHOP-EXP',
+    description: 'Compact high-footfall express store with premium on-the-go items.',
+    color: '#0284c7',
+    type: 'shop',
+    storeLocation: 'Tokyo Shinjuku Station · South Mall',
+    markupPercent: 12,
+    createdAt: '2026-01-10T08:00:00Z',
+  },
+  {
     id: 'fld-spices-masala',
     name: 'Spices, Seasonings & Masala',
     code: 'GRP-SPICE',
     description: 'Biryani masala, cumin, coriander, turmeric, cloves, cardamom and whole spices.',
     color: '#d97706',
+    type: 'category',
     createdAt: '2026-01-15T08:00:00Z',
   },
   {
@@ -22,6 +56,7 @@ export const INITIAL_FOLDERS: ProductFolder[] = [
     code: 'GRP-MEAT',
     description: 'Beef, mutton, goat, chicken cuts, steaks, kebabs, liver and tripe.',
     color: '#e11d48',
+    type: 'category',
     createdAt: '2026-01-18T10:30:00Z',
   },
   {
@@ -30,6 +65,7 @@ export const INITIAL_FOLDERS: ProductFolder[] = [
     code: 'GRP-GRAIN',
     description: 'Aromatic basmati rice, jasmine rice, maida, sooji, and whole dal pulses.',
     color: '#059669',
+    type: 'category',
     createdAt: '2026-02-01T14:15:00Z',
   },
   {
@@ -38,6 +74,7 @@ export const INITIAL_FOLDERS: ProductFolder[] = [
     code: 'GRP-BEV',
     description: 'Organic fruit juices, basil seed drinks, tea leaves, lassi and soft drinks.',
     color: '#0284c7',
+    type: 'category',
     createdAt: '2026-02-10T11:00:00Z',
   },
   {
@@ -46,6 +83,7 @@ export const INITIAL_FOLDERS: ProductFolder[] = [
     code: 'GRP-SNACK',
     description: 'Chanachur, cookies, paratha, gulab jamun, samosa and frozen items.',
     color: '#7c3aed',
+    type: 'category',
     createdAt: '2026-02-20T09:45:00Z',
   },
 ];

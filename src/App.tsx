@@ -14,6 +14,7 @@ import { ProductFormModal } from './components/ProductFormModal';
 import { StockAdjustModal } from './components/StockAdjustModal';
 import { AdminLoginModal } from './components/AdminLogin';
 import { PriceTagMakerModal } from './components/PriceTagMakerModal';
+import { ExcelBulkImportModal } from './components/ExcelBulkImportModal';
 import { Product } from './types/inventory';
 import { Tag } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const MainAppContent: React.FC = () => {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPriceTagMakerOpen, setIsPriceTagMakerOpen] = useState(false);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [tagMakerTargetProduct, setTagMakerTargetProduct] = useState<Product | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -66,6 +68,7 @@ const MainAppContent: React.FC = () => {
         onOpenAddModal={handleOpenAdd}
         onOpenLoginModal={() => setIsLoginOpen(true)}
         onOpenPriceTagMaker={() => handleOpenPriceTagMaker()}
+        onOpenExcelImport={() => setIsExcelImportOpen(true)}
       />
 
       {/* Main Workspace Canvas */}
@@ -149,6 +152,12 @@ const MainAppContent: React.FC = () => {
         }}
         products={products}
         preselectedProduct={tagMakerTargetProduct}
+      />
+
+      <ExcelBulkImportModal
+        isOpen={isExcelImportOpen}
+        onClose={() => setIsExcelImportOpen(false)}
+        defaultFolderId={activeFolderFilter !== 'all' ? activeFolderFilter : undefined}
       />
 
       {/* Clean quiet footer */}

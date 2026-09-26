@@ -2,6 +2,8 @@ export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'overstock
 
 export type UnitOfMeasure = 'pcs' | 'kg' | 'liters' | 'boxes' | 'meters' | 'rolls' | 'sets';
 
+export type FolderType = 'shop' | 'category';
+
 export interface ProductFolder {
   id: string;
   name: string;
@@ -10,22 +12,27 @@ export interface ProductFolder {
   color: string;
   iconName?: string;
   createdAt: string;
+  type?: FolderType; // 'shop' represents retail store/branch (Tokyo, Yokohama), 'category' represents product grouping
+  storeLocation?: string;
+  markupPercent?: number; // Default price markup % for this shop (e.g. +10% for airport branch)
 }
 
 export interface Product {
   id: string;
   serial: number; // 1, 2, 3...
   sku: string;
+  barcode?: string;
+  masterSku?: string; // Connects the same base product across two or more shops/folders with shop-specific prices
   name: string; // product_name_eng
   product_name_eng: string;
   product_name_jp: string;
   weight_unit: string; // weight/pc/unit e.g. "60gm", "1kg", "1", "200ml"
   tax_rate: number; // tax % e.g. 8.0
-  price_without_tax: number; // without tax e.g. 120, 231
-  price_with_tax: number; // with tax e.g. 130, 250
+  price_without_tax: number; // without tax e.g. 120, 231 (shop-specific price)
+  price_with_tax: number; // with tax e.g. 130, 250 (shop-specific price)
   origin: string; // VIETNAM, PAKISTAN, BANGLADESH, JAPAN, UNKNOWN, etc.
 
-  folderId: string;
+  folderId: string; // Which Shop or Category folder this product belongs to
   category: string;
   description: string;
   unitCost: number; // cost basis

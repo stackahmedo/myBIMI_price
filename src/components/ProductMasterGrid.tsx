@@ -22,9 +22,13 @@ import {
   CheckCircle2,
   X,
   ChevronDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Store,
+  Copy,
 } from 'lucide-react';
 import { BulkPriceEditModal } from './BulkPriceEditModal';
+import { ExcelBulkImportModal } from './ExcelBulkImportModal';
+import { CloneToShopModal } from './CloneToShopModal';
 
 interface ProductMasterGridProps {
   onOpenAddModal: () => void;
@@ -66,10 +70,24 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
   const [isBatchMoveOpen, setIsBatchMoveOpen] = useState(false);
   const [batchMoveTargetFolder, setBatchMoveTargetFolder] = useState('');
   const [isBulkPriceEditOpen, setIsBulkPriceEditOpen] = useState(false);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [productToClone, setProductToClone] = useState<Product | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Fast map lookup
   const folderMap = useMemo(() => new Map(folders.map(f => [f.id, f])), [folders]);
+
+  // Lookup sibling products across shops (Same product, two shop two price)
+  const multiShopMap = useMemo(() => {
+    const map = new Map<string, Product[]>();
+    products.forEach(p => {
+      const key = p.masterSku || p.product_name_eng.toLowerCase().trim();
+      const list = map.get(key) || [];
+      list.push(p);
+      map.set(key, list);
+    });
+    return map;
+  }, [products]);
 
   // Unique origins list
   const originList = useMemo(() => {
@@ -399,6 +417,17 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
               )}
             </div>
 
+            {/* Import Excel button */}
+            <button
+              type="button"
+              onClick={() => setIsExcelImportOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
+              title="Bulk import products from Excel (.xlsx) or CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Import Excel</span>
+            </button>
+
             {/* Bulk Edit Tax & Prices Button */}
             <button
               onClick={handleOpenBulkEdit}
@@ -431,20 +460,35 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
 
         {/* Row 2: Filter selects */}
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-100">
-          {/* Folder filter */}
+          {/* Shop / Folder filter */}
           <div className="flex items-center gap-1.5 text-xs text-stone-600 flex-1 min-w-[140px] sm:flex-none">
-            <Filter className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+            <Store className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
             <select
               value={selectedFolder}
               onChange={e => setSelectedFolder(e.target.value)}
               className="w-full sm:w-auto bg-stone-50 border border-stone-300 text-stone-800 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-500 focus:bg-white font-medium"
             >
-              <option value="all">All Folders ({products.length})</option>
-              {folders.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+              <option value="all">All Shops &amp; Folders ({products.length})</option>
+              <optgroup label="🏪 Retail Shops &amp; Branches (Two Shop Two Price)">
+                {folders.filter(f => f.type === 'shop').map(f => {
+                  const count = products.filter(p => p.folderId === f.id).length;
+                  return (
+                    <option key={f.id} value={f.id}>
+                      🏪 {f.name} ({count} items)
+                    </option>
+                  );
+                })}
+              </optgroup>
+              <optgroup label="📁 Categories">
+                {folders.filter(f => f.type !== 'shop').map(f => {
+                  const count = products.filter(p => p.folderId === f.id).length;
+                  return (
+                    <option key={f.id} value={f.id}>
+                      📁 {f.name} ({count} items)
+                    </option>
+                  );
+                })}
+              </optgroup>
             </select>
           </div>
 
@@ -586,6 +630,11 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                       <span className="font-mono text-xs font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
                         #{p.serial}
                       </span>
+                      {folderMap.get(p.folderId) && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 truncate max-w-[130px]">
+                          🏪 {folderMap.get(p.folderId)?.name}
+                        </span>
+                      )}
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-800 font-semibold uppercase">
                         {p.origin}
                       </span>
@@ -593,22 +642,30 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
 
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={() => setProductToClone(p)}
+                        className="px-2 py-1 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Copy to Another Shop (Set Shop Price)"
+                      >
+                        <Store className="w-3 h-3 text-emerald-600" />
+                        <span>Shop</span>
+                      </button>
+                      <button
                         onClick={() => onOpenPriceTagMaker(p)}
-                        className="px-2 py-1 text-xs font-mono font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-md flex items-center gap-1 transition-colors"
+                        className="px-2 py-1 text-xs font-mono font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Tag className="w-3 h-3 text-orange-600" />
                         <span>Tag</span>
                       </button>
                       <button
                         onClick={() => onEditProduct(p)}
-                        className="p-1.5 text-stone-500 hover:text-stone-900 rounded-md hover:bg-stone-100 transition-colors"
+                        className="p-1.5 text-stone-500 hover:text-stone-900 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
                         title="Edit Price Tag"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setProductToDelete(p)}
-                        className="p-1.5 text-stone-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                        className="p-1.5 text-stone-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -624,6 +681,27 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                     <p className="text-xs text-stone-600 font-medium mt-0.5">
                       {p.product_name_jp || '—'}
                     </p>
+                    {/* Multi-Shop Price indicator */}
+                    {(() => {
+                      const siblings = (multiShopMap.get(p.masterSku || p.product_name_eng.toLowerCase().trim()) || []).filter(s => s.id !== p.id);
+                      if (siblings.length === 0) return null;
+                      return (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
+                          <span className="font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Store className="w-2.5 h-2.5 text-amber-600" />
+                            <span>2 Shops:</span>
+                          </span>
+                          {siblings.map(s => {
+                            const sf = folderMap.get(s.folderId);
+                            return (
+                              <span key={s.id} className="font-mono text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
+                                {sf?.name || 'Shop'}: ¥{s.price_without_tax.toLocaleString()}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Metrics & Price Bottom Bar */}
@@ -725,6 +803,8 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                   </button>
                 </th>
 
+                <th className="py-3 px-3">Shop / Location</th>
+
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -732,7 +812,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
             <tbody className="divide-y divide-stone-100">
               {sortedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-stone-400">
+                  <td colSpan={11} className="py-12 text-center text-stone-400">
                     <Package className="w-8 h-8 mx-auto mb-2 text-stone-300 stroke-[1.5]" />
                     <p className="text-sm font-semibold text-stone-700">No products match your filter criteria.</p>
                   </td>
@@ -773,8 +853,18 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                         <div className="font-bold text-stone-900 truncate max-w-[200px] lg:max-w-[240px]" title={p.product_name_eng}>
                           {p.product_name_eng}
                         </div>
-                        <div className="text-[10px] text-stone-400 font-medium mt-0.5">
-                          {folder ? folder.name : 'General'}
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-stone-400 font-medium mt-0.5">
+                          <span>{folder ? folder.name : 'General'}</span>
+                          {(() => {
+                            const siblings = (multiShopMap.get(p.masterSku || p.product_name_eng.toLowerCase().trim()) || []).filter(s => s.id !== p.id);
+                            if (siblings.length === 0) return null;
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1 rounded" title="Same product with different shop price">
+                                <Store className="w-2.5 h-2.5 text-amber-600" />
+                                <span>{siblings.length + 1} Shops</span>
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
 
@@ -810,13 +900,30 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                         </span>
                       </td>
 
+                      {/* Shop / Branch */}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                          <Store className="w-3 h-3 text-emerald-600" />
+                          <span className="truncate max-w-[130px]">{folder?.name || 'Tokyo Main'}</span>
+                        </span>
+                      </td>
+
                       {/* Actions */}
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1">
                           <button
+                            onClick={() => setProductToClone(p)}
+                            title="Copy to Another Shop (Set Shop Price)"
+                            className="px-2 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Store className="w-3 h-3 text-emerald-600" />
+                            <span>Shop</span>
+                          </button>
+
+                          <button
                             onClick={() => onOpenPriceTagMaker(p)}
                             title="Print Price Tag"
-                            className="px-2 py-1 text-[11px] font-mono font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-md transition-colors flex items-center gap-1"
+                            className="px-2 py-1 text-[11px] font-mono font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <Tag className="w-3 h-3 text-orange-600" />
                             <span>Tag</span>
@@ -825,7 +932,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                           <button
                             onClick={() => onEditProduct(p)}
                             title="Edit Price Tag"
-                            className="p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-md transition-colors"
+                            className="p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-md transition-colors cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -833,7 +940,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                           <button
                             onClick={() => setProductToDelete(p)}
                             title="Delete Price Tag"
-                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -954,6 +1061,24 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
         products={products}
         selectedProductIds={selectedIds}
         onApplyBulkUpdate={handleApplyBulkUpdate}
+      />
+
+      {/* Excel Bulk Import Modal */}
+      <ExcelBulkImportModal
+        isOpen={isExcelImportOpen}
+        onClose={() => setIsExcelImportOpen(false)}
+        defaultFolderId={selectedFolder !== 'all' ? selectedFolder : undefined}
+      />
+
+      {/* Clone to Shop / Multi-Shop Pricing Modal */}
+      <CloneToShopModal
+        isOpen={!!productToClone}
+        product={productToClone}
+        onClose={() => setProductToClone(null)}
+        onSuccess={(cloned) => {
+          setSuccessNotice(`Successfully created shop price tag for ${cloned.product_name_eng} (¥${cloned.price_without_tax.toLocaleString()}).`);
+          setTimeout(() => setSuccessNotice(null), 4000);
+        }}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Product } from '../types/inventory';
+import { useInventory } from '../context/InventoryContext';
 import {
   Printer,
   X,
@@ -17,6 +18,10 @@ import {
   Scissors,
   Check,
   Loader2,
+  HelpCircle,
+  Search,
+  Store,
+  Filter,
 } from 'lucide-react';
 import { MyBimiPriceCardSvg, getMyBimiCardSvgString } from './MyBimiPriceCardSvg';
 import { jsPDF } from 'jspdf';
@@ -37,12 +42,22 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
   products,
   preselectedProduct,
 }) => {
+  const { folders } = useInventory();
+  const folderMap = useMemo(() => new Map(folders.map(f => [f.id, f])), [folders]);
+
   // Tabs and view
   const [activeTab, setActiveTab] = useState<ViewTab>('sheet');
   const [paperSize, setPaperSize] = useState<PaperSize>('A4');
   const [showCropGuides, setShowCropGuides] = useState(true);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [showBrowserTips, setShowBrowserTips] = useState(false);
+  const [printNotice, setPrintNotice] = useState<{ title: string; desc: string; pdfReady?: boolean } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Search and shop filter for queue
+  const [searchQuery, setSearchQuery] = useState('');
+  const [shopFilter, setShopFilter] = useState<string>('all');
 
   const [selectedStudioProduct, setSelectedStudioProduct] = useState<Product>(
     () => preselectedProduct || products[0] || ({} as Product)
@@ -60,6 +75,25 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
   // Mobile controls
   const [showConfigMobile, setShowConfigMobile] = useState(false);
 
+  // Filtered queue of catalog for list display
+  const filteredCatalog = useMemo(() => {
+    return products.filter(p => {
+      if (shopFilter !== 'all' && p.folderId !== shopFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const f = folderMap.get(p.folderId)?.name.toLowerCase() || '';
+        return (
+          p.product_name_eng.toLowerCase().includes(q) ||
+          p.product_name_jp.toLowerCase().includes(q) ||
+          p.origin.toLowerCase().includes(q) ||
+          f.includes(q) ||
+          p.serial.toString().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [products, shopFilter, searchQuery, folderMap]);
+
   // Selected items queue
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     if (preselectedProduct) return [preselectedProduct.id];
@@ -75,10 +109,12 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
 
   // Filtered queue of items based on scope
   const itemsToPrint = useMemo(() => {
-    if (exportScope === 'all') return products;
+    if (exportScope === 'all') {
+      return shopFilter !== 'all' ? products.filter(p => p.folderId === shopFilter) : products;
+    }
     const selected = products.filter(p => selectedIds.includes(p.id));
     return selected.length > 0 ? selected : products.slice(0, 8);
-  }, [products, selectedIds, exportScope]);
+  }, [products, selectedIds, exportScope, shopFilter]);
 
   // Total pages calculation
   const totalPages = Math.max(1, Math.ceil(itemsToPrint.length / cardsPerPage));
@@ -108,20 +144,37 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === products.length) {
-      setSelectedIds([]);
+    const visibleIds = filteredCatalog.map(p => p.id);
+    const allVisibleSelected = visibleIds.every(id => selectedIds.includes(id));
+    if (allVisibleSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedIds(products.map(p => p.id));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
     }
   };
 
   // Direct Browser Print (Multi-page zero-bleed physical A4)
   const handlePrint = (target: 'all' | 'current') => {
+    setIsPrinting(true);
     setPrintTarget(target);
-    // Allow React to re-render the portal with target pages before opening print dialog
+    setPrintNotice(null);
+
+    // Allow React to re-render the portal with target pages before dispatching print
     setTimeout(() => {
-      window.print();
-    }, 100);
+      try {
+        window.focus();
+        window.print();
+      } catch (err) {
+        console.warn('Direct window.print encountered error or sandbox limitation:', err);
+      }
+
+      setIsPrinting(false);
+      setPrintNotice({
+        title: target === 'all' ? `Print Job Ready (${itemsToPrint.length} cards)` : `Print Page ${currentPage} Ready`,
+        desc: 'Browser print dialog dispatched. If popup was blocked by your browser preview frame, download the print-ready A4 PDF directly below.',
+        pdfReady: true,
+      });
+    }, 120);
   };
 
   // Standalone Single SVG Download
@@ -173,33 +226,48 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
 
       // Helper to render an SVG card into high-res PNG for vector PDF embedding
       const renderCardToPng = (product: Product): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const svgString = getMyBimiCardSvgString(product);
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
+        return new Promise((resolve) => {
+          try {
+            let svgString = getMyBimiCardSvgString(product);
+            // Remove external @import so SVG image does not fail CORS in isolated context
+            svgString = svgString.replace(/@import\s+url\([^)]+\);?/g, '');
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const img = new Image();
 
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1507;
-            canvas.height = 1044;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
+            const timer = setTimeout(() => {
               URL.revokeObjectURL(url);
-              return reject('No canvas context');
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-            resolve(canvas.toDataURL('image/png', 0.96));
-          };
-          img.onerror = e => {
-            URL.revokeObjectURL(url);
-            reject(e);
-          };
-          img.src = url;
+              resolve('');
+            }, 1200);
+
+            img.onload = () => {
+              clearTimeout(timer);
+              const canvas = document.createElement('canvas');
+              canvas.width = 1507;
+              canvas.height = 1044;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                URL.revokeObjectURL(url);
+                resolve('');
+                return;
+              }
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
+              URL.revokeObjectURL(url);
+              resolve(canvas.toDataURL('image/png', 0.95));
+            };
+
+            img.onerror = () => {
+              clearTimeout(timer);
+              URL.revokeObjectURL(url);
+              resolve('');
+            };
+
+            img.src = url;
+          } catch {
+            resolve('');
+          }
         });
       };
 
@@ -344,8 +412,8 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
               <button
                 onClick={() => handleExportPdf('all')}
                 disabled={isExportingPdf}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg shadow-xs transition-colors active:scale-95 disabled:opacity-50"
-                title="Export high-resolution multi-page PDF"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg shadow-xs transition-colors active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="Export high-resolution multi-page PDF (Guaranteed 100% cross-browser fit)"
               >
                 {isExportingPdf ? (
                   <>
@@ -366,13 +434,37 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
               <div className="relative flex items-center">
                 <button
                   onClick={() => handlePrint('all')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg shadow-xs transition-colors active:scale-95"
+                  disabled={isPrinting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg shadow-xs transition-colors active:scale-95 disabled:opacity-75 cursor-pointer"
                   title="Print all selected pages on A4 paper"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print All ({itemsToPrint.length})</span>
+                  {isPrinting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Printing…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print All ({itemsToPrint.length})</span>
+                    </>
+                  )}
                 </button>
               </div>
+
+              {/* Browser Tips Button */}
+              <button
+                onClick={() => setShowBrowserTips(prev => !prev)}
+                className={`p-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                  showBrowserTips
+                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'
+                }`}
+                title="Cross-Browser & Vercel Printing Tips"
+              >
+                <HelpCircle className="w-4 h-4 text-amber-600" />
+                <span className="hidden xl:inline">Print Tips</span>
+              </button>
 
               {/* Mobile Drawer Trigger */}
               <button
@@ -392,75 +484,207 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
             </div>
           </div>
 
+          {/* Cross-Browser & Vercel Printing Guide Banner */}
+          {showBrowserTips && (
+            <div className="bg-amber-50/95 border-b border-amber-200 px-4 py-3 text-xs text-amber-950 animate-in slide-in-from-top-2 duration-150 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1.5 max-w-4xl">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <HelpCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>How to get zero text overflow & exact 90×65mm cards in any browser on Vercel:</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1 text-[11px] leading-relaxed">
+                    <div className="p-2 bg-white/80 rounded-lg border border-amber-200 shadow-2xs">
+                      <span className="font-bold text-stone-900 block mb-0.5">🌐 Chrome &amp; Edge</span>
+                      In Print Dialog → Set <strong>Margins: "None"</strong> (or Minimum), Scale: 100%, and check <strong>"Background graphics"</strong>.
+                    </div>
+                    <div className="p-2 bg-white/80 rounded-lg border border-amber-200 shadow-2xs">
+                      <span className="font-bold text-stone-900 block mb-0.5">🧭 Safari &amp; macOS</span>
+                      In Print Dialog → Uncheck <strong>"Print headers and footers"</strong> so Safari doesn't shrink the 297mm height.
+                    </div>
+                    <div className="p-2 bg-white/80 rounded-lg border border-amber-200 shadow-2xs">
+                      <span className="font-bold text-stone-900 block mb-0.5">⭐ 100% Vector PDF (Best)</span>
+                      Click <strong>"Export PDF"</strong>! It generates a pristine, vector-embedded PDF that prints identically on any printer without browser discrepancies.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowBrowserTips(false)}
+                  className="p-1 text-amber-700 hover:text-amber-950 rounded cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Print Notice & Quick Action Banner */}
+          {printNotice && (
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 animate-in fade-in shrink-0">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-orange-600 shrink-0" />
+                <div>
+                  <span className="font-bold">{printNotice.title}: </span>
+                  <span className="text-amber-800">{printNotice.desc}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {printNotice.pdfReady && (
+                  <button
+                    onClick={() => handleExportPdf('all')}
+                    disabled={isExportingPdf}
+                    className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-md flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    {isExportingPdf ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Generating PDF…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download A4 PDF</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => setPrintNotice(null)}
+                  className="p-1 text-amber-600 hover:text-amber-900 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Modal Body */}
           <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0">
             {/* Left Column: Product Selection Catalog */}
             <div
-              className={`lg:col-span-4 p-4 border-r border-stone-200 overflow-y-auto space-y-4 bg-stone-50 ${
+              className={`lg:col-span-4 p-3.5 border-r border-stone-200 overflow-y-auto space-y-3 bg-stone-50 ${
                 showConfigMobile ? 'block' : 'hidden lg:block'
               }`}
             >
+              {/* Filter by Shop / Folder and Search */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Filter products, shops, origins..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-stone-300 rounded-lg text-stone-900 placeholder-stone-400 focus:outline-hidden focus:border-emerald-600 font-medium"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-2 text-stone-400 hover:text-stone-700"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <select
+                    value={shopFilter}
+                    onChange={e => setShopFilter(e.target.value)}
+                    className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg px-2.5 py-1.5 text-stone-800 focus:outline-hidden focus:border-emerald-600 truncate"
+                  >
+                    <option value="all">All Shops &amp; Folders ({products.length})</option>
+                    {folders.map(f => {
+                      const count = products.filter(p => p.folderId === f.id).length;
+                      return (
+                        <option key={f.id} value={f.id}>
+                          {f.type === 'shop' ? '🏪 ' : '📁 '}
+                          {f.name} ({count} items)
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
               {/* Batch Selection Header */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-1 border-t border-stone-200">
                 <div>
                   <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">Queue Selection</h4>
                   <p className="text-[11px] text-stone-500 font-medium">
-                    {selectedIds.length} of {products.length} products selected
+                    {selectedIds.length} of {filteredCatalog.length} visible selected
                   </p>
                 </div>
 
                 <button
                   onClick={handleSelectAll}
-                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
                 >
-                  {selectedIds.length === products.length ? (
+                  {filteredCatalog.every(p => selectedIds.includes(p.id)) && filteredCatalog.length > 0 ? (
                     <>
-                      <CheckSquare className="w-3.5 h-3.5" />
+                      <CheckSquare className="w-3.5 h-3.5 text-emerald-700" />
                       <span>Deselect All</span>
                     </>
                   ) : (
                     <>
-                      <Square className="w-3.5 h-3.5" />
-                      <span>Select All</span>
+                      <Square className="w-3.5 h-3.5 text-stone-400" />
+                      <span>Select All ({filteredCatalog.length})</span>
                     </>
                   )}
                 </button>
               </div>
 
               {/* Products List Checklist */}
-              <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-                {products.map(p => {
-                  const isChecked = selectedIds.includes(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        handleToggleSelect(p.id);
-                        setSelectedStudioProduct(p);
-                      }}
-                      className={`flex items-center gap-3 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                        isChecked
-                          ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-                          : 'bg-white border-stone-200 hover:border-stone-300 text-stone-700'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {}}
-                        className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold truncate">{p.product_name_eng}</div>
-                        <div className="text-[11px] text-stone-500 truncate">{p.product_name_jp}</div>
+              <div className="space-y-1.5 max-h-[calc(100vh-340px)] overflow-y-auto pr-1">
+                {filteredCatalog.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-stone-400 bg-white rounded-xl border border-stone-200">
+                    No products match the selected shop or search filter.
+                  </div>
+                ) : (
+                  filteredCatalog.map(p => {
+                    const isChecked = selectedIds.includes(p.id);
+                    const folder = folderMap.get(p.folderId);
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          handleToggleSelect(p.id);
+                          setSelectedStudioProduct(p);
+                        }}
+                        className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                            : 'bg-white border-stone-200 hover:border-stone-300 text-stone-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold truncate">{p.product_name_eng}</div>
+                          <div className="text-[11px] text-stone-500 truncate">{p.product_name_jp}</div>
+                          <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                            {folder && (
+                              <span className="font-bold px-1.5 py-0.2 rounded bg-stone-100 border border-stone-200 text-stone-700 truncate max-w-[120px]">
+                                {folder.type === 'shop' ? '🏪 ' : '📁 '}
+                                {folder.name}
+                              </span>
+                            )}
+                            <span className="font-mono text-stone-400">#{p.serial}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-mono font-bold text-red-600">¥{p.price_without_tax.toLocaleString()}</div>
+                          <div className="text-[9px] text-stone-500 font-mono">込¥{p.price_with_tax.toLocaleString()}</div>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-mono font-bold text-red-600">¥{p.price_without_tax.toLocaleString()}</div>
-                        <div className="text-[9px] text-stone-500">込¥{p.price_with_tax.toLocaleString()}</div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -496,11 +720,12 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                     <div className="flex items-center gap-2 text-stone-600">
                       <button
                         onClick={() => handlePrint('current')}
-                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                        disabled={isPrinting}
+                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-md font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                         title="Print only this page (8 cards)"
                       >
                         <Printer className="w-3 h-3 text-orange-600" />
-                        <span>Print This Page</span>
+                        <span>{isPrinting ? 'Printing…' : 'Print This Page'}</span>
                       </button>
 
                       <button

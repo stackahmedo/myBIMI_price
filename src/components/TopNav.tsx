@@ -13,7 +13,8 @@ import {
   Tag,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export type NavTab = 'dashboard' | 'products' | 'folders' | 'history';
@@ -24,6 +25,7 @@ interface TopNavProps {
   onOpenAddModal: () => void;
   onOpenLoginModal: () => void;
   onOpenPriceTagMaker: () => void;
+  onOpenExcelImport?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -32,6 +34,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenAddModal,
   onOpenLoginModal,
   onOpenPriceTagMaker,
+  onOpenExcelImport,
 }) => {
   const { adminUser, isAuthenticated, logout, exportCSV, resetToDemo } = useInventory();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -142,6 +145,18 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span className="sm:hidden">Add</span>
           </button>
 
+          {/* Import Excel button */}
+          {onOpenExcelImport && (
+            <button
+              onClick={onOpenExcelImport}
+              title="Bulk Import Products from Excel (.xlsx) or CSV"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-md transition-colors shadow-2xs cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Import Excel</span>
+            </button>
+          )}
+
           {/* Export CSV button */}
           <button
             onClick={() => exportCSV()}
@@ -243,7 +258,20 @@ export const TopNav: React.FC<TopNavProps> = ({
           </button>
 
           {/* Mobile Extra Actions */}
-          <div className="pt-2 mt-2 border-t border-stone-200 flex items-center justify-between px-2 text-stone-600">
+          <div className="pt-2 mt-2 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 px-2 text-stone-600">
+            {onOpenExcelImport && (
+              <button
+                onClick={() => {
+                  onOpenExcelImport();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-1.5 py-1 text-emerald-800 font-bold"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Import Excel</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 exportCSV();
