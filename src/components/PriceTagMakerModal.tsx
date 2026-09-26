@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Product } from '../types/inventory';
+import {
+  Product,
+  PriceCardTypographyConfig,
+  DEFAULT_TYPOGRAPHY_CONFIG,
+  AVAILABLE_JP_FONTS,
+  AVAILABLE_EN_FONTS,
+  AVAILABLE_PRICE_FONTS,
+} from '../types/inventory';
 import { useInventory } from '../context/InventoryContext';
 import {
   Printer,
@@ -22,8 +29,10 @@ import {
   Search,
   Store,
   Filter,
+  Type,
 } from 'lucide-react';
 import { MyBimiPriceCardSvg, getMyBimiCardSvgString } from './MyBimiPriceCardSvg';
+import { TypographyConfigPanel } from './TypographyConfigPanel';
 import { jsPDF } from 'jspdf';
 
 interface PriceTagMakerModalProps {
@@ -34,7 +43,9 @@ interface PriceTagMakerModalProps {
 }
 
 export type PaperSize = 'A4' | 'A5' | 'A3';
-export type ViewTab = 'sheet' | 'studio';
+export type ViewTab = 'sheet' | 'studio' | 'typography';
+
+const STORAGE_KEY_TYPOGRAPHY = 'bimi_tag_pro_card_typography';
 
 export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
   isOpen,
@@ -52,8 +63,25 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [showBrowserTips, setShowBrowserTips] = useState(false);
+  const [showInlineTypography, setShowInlineTypography] = useState(false);
   const [printNotice, setPrintNotice] = useState<{ title: string; desc: string; pdfReady?: boolean } | null>(null);
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Typography Configuration (Japanese font/sub-font/size, English font/sub-font/size, Price font/sub-font/size)
+  const [typography, setTypography] = useState<PriceCardTypographyConfig>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TYPOGRAPHY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_TYPOGRAPHY_CONFIG;
+  });
+
+  const handleTypographyChange = (newConfig: PriceCardTypographyConfig) => {
+    setTypography(newConfig);
+    try {
+      localStorage.setItem(STORAGE_KEY_TYPOGRAPHY, JSON.stringify(newConfig));
+    } catch {}
+  };
 
   // Search and shop filter for queue
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,7 +207,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
 
   // Standalone Single SVG Download
   const handleDownloadSingleSvg = (product: Product) => {
-    const svgContent = getMyBimiCardSvgString(product);
+    const svgContent = getMyBimiCardSvgString(product, typography);
     const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -228,7 +256,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
       const renderCardToPng = (product: Product): Promise<string> => {
         return new Promise((resolve) => {
           try {
-            let svgString = getMyBimiCardSvgString(product);
+            let svgString = getMyBimiCardSvgString(product, typography);
             // Remove external @import so SVG image does not fail CORS in isolated context
             svgString = svgString.replace(/@import\s+url\([^)]+\);?/g, '');
             const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
@@ -336,7 +364,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
               <div className="flex bg-stone-200/80 p-0.5 rounded-lg text-xs font-bold">
                 <button
                   onClick={() => setActiveTab('sheet')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                     activeTab === 'sheet'
                       ? 'bg-white text-emerald-950 shadow-xs'
                       : 'text-stone-600 hover:text-stone-900'
@@ -347,7 +375,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('studio')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                     activeTab === 'studio'
                       ? 'bg-white text-emerald-950 shadow-xs'
                       : 'text-stone-600 hover:text-stone-900'
@@ -356,12 +384,37 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                   <Maximize2 className="w-3.5 h-3.5" />
                   <span>Card Studio</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab('typography')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                    activeTab === 'typography'
+                      ? 'bg-white text-orange-950 shadow-xs font-bold'
+                      : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  <Type className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Fonts &amp; Sizes</span>
+                </button>
               </div>
+
+              {/* Quick Font Options Bar Toggle */}
+              <button
+                onClick={() => setShowInlineTypography(!showInlineTypography)}
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                  showInlineTypography
+                    ? 'bg-orange-50 text-orange-900 border-orange-300 shadow-2xs font-bold'
+                    : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'
+                }`}
+                title="Toggle quick font and size tuning bar"
+              >
+                <Sliders className="w-3.5 h-3.5 text-orange-600" />
+                <span>Fonts Bar {showInlineTypography ? '▲' : '▼'}</span>
+              </button>
 
               {/* Crop Guides Toggle */}
               <button
                 onClick={() => setShowCropGuides(!showCropGuides)}
-                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                   showCropGuides
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                     : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'
@@ -690,6 +743,118 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
 
             {/* Right Column: Live Interactive View */}
             <div className="lg:col-span-8 p-3 sm:p-5 bg-stone-100 overflow-y-auto flex flex-col items-center">
+              {/* Inline Quick Font & Size Customizer Bar (Visible when toggled in sheet or studio view) */}
+              {showInlineTypography && activeTab !== 'typography' && (
+                <div className="w-full max-w-[850px] bg-white rounded-xl border border-orange-200 shadow-xs p-3.5 mb-3 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-stone-900">
+                      <Sliders className="w-4 h-4 text-orange-600" />
+                      <span>Quick Font &amp; Size Tuning Bar</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('typography')}
+                      className="text-[11px] font-bold text-orange-700 hover:text-orange-950 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Type className="w-3.5 h-3.5" />
+                      <span>Open Full Font Studio →</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Japanese Font | Size */}
+                    <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-stone-800">
+                        <span>Japanese Font | Size</span>
+                        <span className="font-mono text-emerald-800 font-bold bg-white px-1.5 py-0.2 rounded border border-stone-200 text-[10px]">
+                          {Math.round(typography.jpFontSizeScale * 100)}%
+                        </span>
+                      </div>
+                      <select
+                        value={typography.jpFont}
+                        onChange={e => handleTypographyChange({ ...typography, jpFont: e.target.value })}
+                        className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg px-2 py-1.5 text-stone-900 truncate"
+                      >
+                        {AVAILABLE_JP_FONTS.map(f => (
+                          <option key={f.id} value={f.id}>{f.label}</option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <input
+                          type="range"
+                          min="0.70"
+                          max="1.45"
+                          step="0.05"
+                          value={typography.jpFontSizeScale}
+                          onChange={e => handleTypographyChange({ ...typography, jpFontSizeScale: parseFloat(e.target.value) })}
+                          className="w-full accent-emerald-700 cursor-pointer h-1.5 bg-stone-200 rounded"
+                        />
+                      </div>
+                    </div>
+
+                    {/* English Font | Size */}
+                    <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-stone-800">
+                        <span>English Font | Size</span>
+                        <span className="font-mono text-blue-800 font-bold bg-white px-1.5 py-0.2 rounded border border-stone-200 text-[10px]">
+                          {Math.round(typography.enFontSizeScale * 100)}%
+                        </span>
+                      </div>
+                      <select
+                        value={typography.enFont}
+                        onChange={e => handleTypographyChange({ ...typography, enFont: e.target.value })}
+                        className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg px-2 py-1.5 text-stone-900 truncate"
+                      >
+                        {AVAILABLE_EN_FONTS.map(f => (
+                          <option key={f.id} value={f.id}>{f.label}</option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <input
+                          type="range"
+                          min="0.70"
+                          max="1.45"
+                          step="0.05"
+                          value={typography.enFontSizeScale}
+                          onChange={e => handleTypographyChange({ ...typography, enFontSizeScale: parseFloat(e.target.value) })}
+                          className="w-full accent-blue-700 cursor-pointer h-1.5 bg-stone-200 rounded"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Price Font | Size */}
+                    <div className="space-y-1.5 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-stone-800">
+                        <span>Price Font | Size</span>
+                        <span className="font-mono text-red-700 font-bold bg-white px-1.5 py-0.2 rounded border border-stone-200 text-[10px]">
+                          {Math.round(typography.priceFontSizeScale * 100)}%
+                        </span>
+                      </div>
+                      <select
+                        value={typography.priceFont}
+                        onChange={e => handleTypographyChange({ ...typography, priceFont: e.target.value })}
+                        className="w-full text-xs font-semibold bg-white border border-stone-300 rounded-lg px-2 py-1.5 text-stone-900 truncate"
+                      >
+                        {AVAILABLE_PRICE_FONTS.map(f => (
+                          <option key={f.id} value={f.id}>{f.label}</option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <input
+                          type="range"
+                          min="0.70"
+                          max="1.45"
+                          step="0.05"
+                          value={typography.priceFontSizeScale}
+                          onChange={e => handleTypographyChange({ ...typography, priceFontSizeScale: parseFloat(e.target.value) })}
+                          className="w-full accent-red-600 cursor-pointer h-1.5 bg-stone-200 rounded"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'sheet' ? (
                 // Multi-Card Sheet View (2x4 on A4)
                 <div className="w-full flex flex-col items-center space-y-3">
@@ -756,6 +921,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                         <div key={product.id} className="flex flex-col">
                           <MyBimiPriceCardSvg
                             product={product}
+                            typography={typography}
                             showCropMarks={showCropGuides}
                             className="w-full cursor-pointer hover:opacity-95 transition-opacity"
                           />
@@ -779,7 +945,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : activeTab === 'studio' ? (
                 // Single Card Studio View (100% vector focus)
                 <div className="w-full max-w-2xl flex flex-col items-center space-y-4">
                   <div className="w-full flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-stone-200 shadow-2xs">
@@ -800,8 +966,73 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                   <div className="w-full bg-white p-6 rounded-2xl border border-stone-200 shadow-md">
                     <MyBimiPriceCardSvg
                       product={selectedStudioProduct}
+                      typography={typography}
                       showCropMarks={showCropGuides}
                       className="w-full max-w-xl mx-auto"
+                    />
+                  </div>
+                </div>
+              ) : (
+                // Full Typography & Font Customizer View (activeTab === 'typography')
+                <div className="w-full max-w-5xl flex flex-col items-center space-y-4">
+                  {/* Top Bar for Typography View */}
+                  <div className="w-full flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-2.5 rounded-xl border border-stone-200 shadow-2xs text-xs">
+                    <div className="flex items-center gap-2">
+                      <Type className="w-4 h-4 text-orange-600" />
+                      <span className="font-bold text-stone-900">
+                        Price Tag Typography &amp; Font Studio
+                      </span>
+                      <span className="text-[11px] text-stone-500 font-medium hidden sm:inline">
+                        (Live preview: {selectedStudioProduct.product_name_eng || 'Sample Card'})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setActiveTab('sheet')}
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Grid3X3 className="w-3.5 h-3.5" />
+                        <span>Apply &amp; View Sheet</span>
+                      </button>
+                      <button
+                        onClick={() => handleDownloadSingleSvg(selectedStudioProduct)}
+                        className="px-2.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download SVG</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Live Sticky Preview of the Selected Card */}
+                  <div className="w-full bg-white p-4 sm:p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col items-center">
+                    <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-3 text-xs text-stone-500 font-medium border-b border-stone-100 pb-2">
+                      <span className="font-bold text-stone-800 flex items-center gap-1">
+                        <span>Live Price Tag Render</span>
+                        <span className="text-[10px] text-stone-400 font-normal">
+                          (Select any item in the left queue to preview)
+                        </span>
+                      </span>
+                      <span className="font-mono text-[11px] text-orange-700 font-bold bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                        JP: {typography.jpFont} ({Math.round(typography.jpFontSizeScale * 100)}%) · EN: {typography.enFont} ({Math.round(typography.enFontSizeScale * 100)}%) · ¥: {typography.priceFont} ({Math.round(typography.priceFontSizeScale * 100)}%)
+                      </span>
+                    </div>
+                    <div className="w-full max-w-xl">
+                      <MyBimiPriceCardSvg
+                        product={selectedStudioProduct}
+                        typography={typography}
+                        showCropMarks={showCropGuides}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Full Comprehensive Typography Config Panel */}
+                  <div className="w-full">
+                    <TypographyConfigPanel
+                      config={typography}
+                      onChange={handleTypographyChange}
                     />
                   </div>
                 </div>
@@ -825,6 +1056,7 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
                   <div key={product.id} className="print-card-box">
                     <MyBimiPriceCardSvg
                       product={product}
+                      typography={typography}
                       showCropMarks={showCropGuides}
                       className="w-full h-full"
                     />

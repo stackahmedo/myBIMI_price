@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { Product } from '../types/inventory';
+import { Product, PriceCardTypographyConfig, DEFAULT_TYPOGRAPHY_CONFIG } from '../types/inventory';
 
 interface MyBimiPriceCardProps {
   product: Product;
   className?: string;
   showCropMarks?: boolean;
+  typography?: PriceCardTypographyConfig;
 }
 
 // Japanese country name mapping
@@ -89,7 +90,19 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
-export const getMyBimiCardSvgString = (product: Product): string => {
+export const getMyBimiCardSvgString = (
+  product: Product,
+  typography?: PriceCardTypographyConfig
+): string => {
+  const typo = typography || DEFAULT_TYPOGRAPHY_CONFIG;
+  const jpFontFamily = `'${typo.jpFont}', ${typo.jpSubFont}`;
+  const enFontFamily = `'${typo.enFont}', ${typo.enSubFont}`;
+  const priceFontFamily = `'${typo.priceFont}', ${typo.priceSubFont}`;
+
+  const jpScale = Math.max(0.65, Math.min(1.5, typo.jpFontSizeScale || 1.0));
+  const enScale = Math.max(0.65, Math.min(1.5, typo.enFontSizeScale || 1.0));
+  const priceScale = Math.max(0.65, Math.min(1.5, typo.priceFontSizeScale || 1.0));
+
   const taxEx = product.price_without_tax.toLocaleString();
   const taxInc = product.price_with_tax.toLocaleString();
   const weightStr = (product.weight_unit || '1 pc').trim();
@@ -98,65 +111,72 @@ export const getMyBimiCardSvgString = (product: Product): string => {
   // 1. Japanese Name Typography & Wrapping
   const rawJp = product.product_name_jp || product.product_name_eng;
   const jpLines = wrapTextCjk(rawJp, 16);
-  let jpFontSize = 76;
+  let baseJpFontSize = 76;
   let jpTspan = '';
   let enStartY = 475;
 
   if (jpLines.length > 1) {
-    jpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
+    baseJpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
+    const jpFontSize = Math.round(baseJpFontSize * jpScale);
     const w0 = Math.min(1360, Math.round(jpLines[0].length * jpFontSize * 1.05));
     const w1 = Math.min(1360, Math.round(jpLines[1].length * jpFontSize * 1.05));
-    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}" textLength="${w1}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[1])}</tspan>`;
+    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}"${w1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[1])}</tspan>`;
     enStartY = 335 + jpFontSize + 12 + 62;
   } else {
-    jpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
-    const w0 = Math.min(1360, Math.round(jpLines[0].length * jpFontSize * 1.05));
-    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(jpLines[0])}</tspan>`;
+    baseJpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
+    const jpFontSize = Math.round(baseJpFontSize * jpScale);
+    const w0 = Math.round(jpLines[0].length * jpFontSize * 1.05);
+    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan>`;
     enStartY = 475;
   }
 
   // 2. English Name Typography & Wrapping
   const rawEn = (product.product_name_eng || '').toUpperCase();
   const enLines = wrapTextWords(rawEn, 24);
-  let enFontSize = 80;
+  let baseEnFontSize = 80;
   let enTspan = '';
 
   if (enLines.length > 1) {
-    enFontSize = rawEn.length <= 30 ? 54 : 44;
-    const w0 = Math.min(1360, Math.round(enLines[0].length * enFontSize * 0.65));
-    const w1 = Math.min(1360, Math.round(enLines[1].length * enFontSize * 0.65));
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}" textLength="${w1}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[1])}</tspan>`;
+    baseEnFontSize = rawEn.length <= 30 ? 54 : 44;
+    const enFontSize = Math.round(baseEnFontSize * enScale);
+    const w0 = Math.round(enLines[0].length * enFontSize * 0.65);
+    const w1 = Math.round(enLines[1].length * enFontSize * 0.65);
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}"${w1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[1])}</tspan>`;
   } else {
-    enFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
-    const w0 = Math.min(1360, Math.round(enLines[0].length * enFontSize * 0.65));
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}" textLength="${w0}" lengthAdjust="spacingAndGlyphs">${escapeXml(enLines[0])}</tspan>`;
+    baseEnFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
+    const enFontSize = Math.round(baseEnFontSize * enScale);
+    const w0 = Math.round(enLines[0].length * enFontSize * 0.65);
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan>`;
   }
 
   // 3. Weight Typography (Strictly constrained within 420px to avoid right-side collision)
-  const weightFontSize = weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46));
+  const weightFontSize = Math.round((weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46))) * enScale);
   const weightTextLen = Math.min(420, Math.round(weightStr.length * weightFontSize * 0.6));
 
   // 4. Origin Typography (Positioned strictly on left under weight section, strictly capped at 420px to never overlap Tax box at x=510)
-  const originFontSize = originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26));
+  const originFontSize = Math.round((originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26))) * jpScale);
   const originTextLen = Math.min(420, Math.round(originStr.length * originFontSize * 0.65));
 
   // 5. Hero Price Typography (Right-anchored, dynamically scaled and clamped to never collide with left tax box at x=510-660)
   const pExLen = taxEx.length;
-  let priceFontSize = 320;
+  let basePriceFontSize = 320;
   if (pExLen >= 7) {
-    priceFontSize = 160;
+    basePriceFontSize = 160;
   } else if (pExLen >= 6) {
-    priceFontSize = 195;
+    basePriceFontSize = 195;
   } else if (pExLen === 5) {
-    priceFontSize = 240;
+    basePriceFontSize = 240;
   } else if (pExLen === 4) {
-    priceFontSize = 280;
+    basePriceFontSize = 280;
   } else {
-    priceFontSize = 320;
+    basePriceFontSize = 320;
   }
+  const priceFontSize = Math.round(basePriceFontSize * priceScale);
   const maxPriceExWidth = 570;
   const estPriceWidth = Math.round(pExLen * priceFontSize * 0.62);
   const priceExTextLenAttr = estPriceWidth > maxPriceExWidth ? `textLength="${maxPriceExWidth}" lengthAdjust="spacingAndGlyphs"` : '';
+
+  const incTaxFontSize = Math.round(105 * priceScale);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1507 1044" width="1507" height="1044" style="text-rendering: geometricPrecision; shape-rendering: geometricPrecision;">
@@ -179,9 +199,9 @@ export const getMyBimiCardSvgString = (product: Product): string => {
       <rect x="56" y="800" width="440" height="90" />
     </clipPath>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;800;900&amp;family=Outfit:wght@700;800;900&amp;family=Inter:wght@600;800;900&amp;display=swap');
-      .sans { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif; }
-      .eng  { font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      .sans  { font-family: ${jpFontFamily}; }
+      .eng   { font-family: ${enFontFamily}; }
+      .price { font-family: ${priceFontFamily}; }
     </style>
   </defs>
 
@@ -222,8 +242,8 @@ export const getMyBimiCardSvgString = (product: Product): string => {
     <text id="Product_Origin" x="64" y="855" class="sans" font-size="${originFontSize}" font-weight="800" fill="#000000" textLength="${originTextLen}" lengthAdjust="spacingAndGlyphs">${escapeXml(originStr)}</text>
   </g>
 
-  <!-- Hero Tax-Ex Price (Right anchored with dynamic font scale and max-width clamp) -->
-  <text id="Price_ExTax" x="1285" y="768" text-anchor="end" class="eng" font-size="${priceFontSize}" font-weight="900" fill="#df0011" ${priceExTextLenAttr}>${taxEx}</text>
+  <!-- Hero Tax-Ex Price (Right anchored with custom price font, scale, and max-width clamp) -->
+  <text id="Price_ExTax" x="1285" y="768" text-anchor="end" class="price" font-size="${priceFontSize}" font-weight="900" fill="#df0011" ${priceExTextLenAttr}>${taxEx}</text>
   <text id="Price_ExTax_Yen" x="1440" y="767" text-anchor="end" class="sans" font-size="145" font-weight="900" fill="#df0011">円</text>
 
   <!-- Tax labels group matching official template -->
@@ -237,7 +257,7 @@ export const getMyBimiCardSvgString = (product: Product): string => {
 
   <!-- Tax rate & Inc-tax price -->
   <text id="Tax_Rate_Label" x="735" y="884" class="sans" font-size="56" font-weight="800" fill="#000000">${product.tax_rate}%税込</text>
-  <text id="Price_IncTax" x="1360" y="894" text-anchor="end" class="eng" font-size="105" font-weight="900" fill="#000000">${taxInc}</text>
+  <text id="Price_IncTax" x="1360" y="894" text-anchor="end" class="price" font-size="${incTaxFontSize}" font-weight="900" fill="#000000">${taxInc}</text>
   <text id="Price_IncTax_Yen" x="1440" y="891" text-anchor="end" class="sans" font-size="62" font-weight="900" fill="#000000">円</text>
 
   <!-- Footer Two-Tone Ribbon (y=922 to 1044) -->
@@ -254,7 +274,17 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
   product,
   className = '',
   showCropMarks = false,
+  typography,
 }) => {
+  const typo = typography || DEFAULT_TYPOGRAPHY_CONFIG;
+  const jpFontFamily = `'${typo.jpFont}', ${typo.jpSubFont}`;
+  const enFontFamily = `'${typo.enFont}', ${typo.enSubFont}`;
+  const priceFontFamily = `'${typo.priceFont}', ${typo.priceSubFont}`;
+
+  const jpScale = Math.max(0.65, Math.min(1.5, typo.jpFontSizeScale || 1.0));
+  const enScale = Math.max(0.65, Math.min(1.5, typo.enFontSizeScale || 1.0));
+  const priceScale = Math.max(0.65, Math.min(1.5, typo.priceFontSizeScale || 1.0));
+
   const taxEx = product.price_without_tax.toLocaleString();
   const taxInc = product.price_with_tax.toLocaleString();
   const weightStr = (product.weight_unit || '1 pc').trim();
@@ -263,60 +293,71 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
   // 1. Japanese Name Typography & Wrapping
   const rawJp = product.product_name_jp || product.product_name_eng;
   const jpLines = wrapTextCjk(rawJp, 16);
-  let jpFontSize = 76;
+  let baseJpFontSize = 76;
   let enStartY = 475;
 
   if (jpLines.length > 1) {
-    jpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
+    baseJpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
+    const jpFontSize = Math.round(baseJpFontSize * jpScale);
     enStartY = 335 + jpFontSize + 12 + 62;
   } else {
-    jpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
+    baseJpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
     enStartY = 475;
   }
+  const jpFontSize = Math.round(baseJpFontSize * jpScale);
 
   // 2. English Name Typography & Wrapping
   const rawEn = (product.product_name_eng || '').toUpperCase();
   const enLines = wrapTextWords(rawEn, 24);
-  let enFontSize = 80;
+  let baseEnFontSize = 80;
 
   if (enLines.length > 1) {
-    enFontSize = rawEn.length <= 30 ? 54 : 44;
+    baseEnFontSize = rawEn.length <= 30 ? 54 : 44;
   } else {
-    enFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
+    baseEnFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
   }
+  const enFontSize = Math.round(baseEnFontSize * enScale);
 
   // 3. Weight Typography (Strictly constrained within 420px)
-  const weightFontSize = weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46));
+  const weightFontSize = Math.round((weightStr.length <= 5 ? 88 : (weightStr.length <= 8 ? 72 : (weightStr.length <= 12 ? 58 : 46))) * enScale);
   const weightTextLen = Math.min(420, Math.round(weightStr.length * weightFontSize * 0.6));
 
   // 4. Origin Typography (Positioned under weight section on left, strictly <= 420px so it never overlaps Tax Box at x=510)
-  const originFontSize = originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26));
+  const originFontSize = Math.round((originStr.length <= 7 ? 44 : (originStr.length <= 11 ? 36 : (originStr.length <= 15 ? 30 : 26))) * jpScale);
   const originTextLen = Math.min(420, Math.round(originStr.length * originFontSize * 0.65));
 
   // 5. Hero Price Typography (Right-anchored, dynamically scaled and clamped)
   const pExLen = taxEx.length;
-  let priceFontSize = 320;
+  let basePriceFontSize = 320;
   if (pExLen >= 7) {
-    priceFontSize = 160;
+    basePriceFontSize = 160;
   } else if (pExLen >= 6) {
-    priceFontSize = 195;
+    basePriceFontSize = 195;
   } else if (pExLen === 5) {
-    priceFontSize = 240;
+    basePriceFontSize = 240;
   } else if (pExLen === 4) {
-    priceFontSize = 280;
+    basePriceFontSize = 280;
   } else {
-    priceFontSize = 320;
+    basePriceFontSize = 320;
   }
+  const priceFontSize = Math.round(basePriceFontSize * priceScale);
   const maxPriceExWidth = 570;
   const estPriceWidth = Math.round(pExLen * priceFontSize * 0.62);
   const priceExTextLength = estPriceWidth > maxPriceExWidth ? maxPriceExWidth : undefined;
 
+  const incTaxFontSize = Math.round(105 * priceScale);
+
   const clipUid = useMemo(() => `c-${product.id || Math.random().toString(36).substr(2, 6)}`, [product.id]);
 
-  const jpWidth0 = Math.min(1360, Math.round((jpLines[0]?.length || 0) * jpFontSize * 1.05));
-  const jpWidth1 = Math.min(1360, Math.round((jpLines[1]?.length || 0) * jpFontSize * 1.05));
-  const enWidth0 = Math.min(1360, Math.round((enLines[0]?.length || 0) * enFontSize * 0.65));
-  const enWidth1 = Math.min(1360, Math.round((enLines[1]?.length || 0) * enFontSize * 0.65));
+  const rawJpW0 = (jpLines[0]?.length || 0) * jpFontSize * 1.05;
+  const rawJpW1 = (jpLines[1]?.length || 0) * jpFontSize * 1.05;
+  const jpWidth0 = rawJpW0 > 1360 ? 1360 : undefined;
+  const jpWidth1 = rawJpW1 > 1360 ? 1360 : undefined;
+
+  const rawEnW0 = (enLines[0]?.length || 0) * enFontSize * 0.65;
+  const rawEnW1 = (enLines[1]?.length || 0) * enFontSize * 0.65;
+  const enWidth0 = rawEnW0 > 1360 ? 1360 : undefined;
+  const enWidth1 = rawEnW1 > 1360 ? 1360 : undefined;
 
   return (
     <div className={`relative ${className} select-none`}>
@@ -348,9 +389,9 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
           </clipPath>
           <style>
             {`
-              @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;800;900&family=Outfit:wght@700;800;900&display=swap');
-              .card-sans { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif; }
-              .card-eng  { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+              .card-sans  { font-family: ${jpFontFamily}; }
+              .card-eng   { font-family: ${enFontFamily}; }
+              .card-price { font-family: ${priceFontFamily}; }
             `}
           </style>
         </defs>
@@ -377,11 +418,11 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
           <text className="card-sans" fontWeight="900" fill="#050505">
             {jpLines.length > 1 ? (
               <>
-                <tspan x="64" y="335" fontSize={jpFontSize} textLength={jpWidth0} lengthAdjust="spacingAndGlyphs">{jpLines[0]}</tspan>
-                <tspan x="64" y={335 + jpFontSize + 12} fontSize={jpFontSize} textLength={jpWidth1} lengthAdjust="spacingAndGlyphs">{jpLines[1]}</tspan>
+                <tspan x="64" y="335" fontSize={jpFontSize} {...(jpWidth0 ? { textLength: jpWidth0, lengthAdjust: 'spacingAndGlyphs' } : {})}>{jpLines[0]}</tspan>
+                <tspan x="64" y={335 + jpFontSize + 12} fontSize={jpFontSize} {...(jpWidth1 ? { textLength: jpWidth1, lengthAdjust: 'spacingAndGlyphs' } : {})}>{jpLines[1]}</tspan>
               </>
             ) : (
-              <tspan x="64" y="375" fontSize={jpFontSize} textLength={jpWidth0} lengthAdjust="spacingAndGlyphs">{jpLines[0]}</tspan>
+              <tspan x="64" y="375" fontSize={jpFontSize} {...(jpWidth0 ? { textLength: jpWidth0, lengthAdjust: 'spacingAndGlyphs' } : {})}>{jpLines[0]}</tspan>
             )}
           </text>
         </g>
@@ -391,11 +432,11 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
           <text className="card-eng" fontWeight="900" fill="#050505">
             {enLines.length > 1 ? (
               <>
-                <tspan x="64" y={enStartY} fontSize={enFontSize} textLength={enWidth0} lengthAdjust="spacingAndGlyphs">{enLines[0]}</tspan>
-                <tspan x="64" y={enStartY + enFontSize + 10} fontSize={enFontSize} textLength={enWidth1} lengthAdjust="spacingAndGlyphs">{enLines[1]}</tspan>
+                <tspan x="64" y={enStartY} fontSize={enFontSize} {...(enWidth0 ? { textLength: enWidth0, lengthAdjust: 'spacingAndGlyphs' } : {})}>{enLines[0]}</tspan>
+                <tspan x="64" y={enStartY + enFontSize + 10} fontSize={enFontSize} {...(enWidth1 ? { textLength: enWidth1, lengthAdjust: 'spacingAndGlyphs' } : {})}>{enLines[1]}</tspan>
               </>
             ) : (
-              <tspan x="64" y={enStartY} fontSize={enFontSize} textLength={enWidth0} lengthAdjust="spacingAndGlyphs">{enLines[0]}</tspan>
+              <tspan x="64" y={enStartY} fontSize={enFontSize} {...(enWidth0 ? { textLength: enWidth0, lengthAdjust: 'spacingAndGlyphs' } : {})}>{enLines[0]}</tspan>
             )}
           </text>
         </g>
@@ -412,12 +453,12 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
           </text>
         </g>
 
-        {/* Hero Price & Yen (Red, right-anchored with clamp against left tax box) */}
+        {/* Hero Price & Yen (Red, right-anchored with custom price font and clamp) */}
         <text
           x="1285"
           y="768"
           textAnchor="end"
-          className="card-eng"
+          className="card-price"
           fontSize={priceFontSize}
           fontWeight="900"
           fill="#df0011"
@@ -440,7 +481,7 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
 
         {/* Tax Rate & Inc-Tax Price */}
         <text x="735" y="884" className="card-sans" fontSize="56" fontWeight="800" fill="#000000">{product.tax_rate}%税込</text>
-        <text x="1360" y="894" textAnchor="end" className="card-eng" fontSize="105" fontWeight="900" fill="#000000">{taxInc}</text>
+        <text x="1360" y="894" textAnchor="end" className="card-price" fontSize={incTaxFontSize} fontWeight="900" fill="#000000">{taxInc}</text>
         <text x="1440" y="891" textAnchor="end" className="card-sans" fontSize="62" fontWeight="900" fill="#000000">円</text>
 
         {/* Footer Two-Tone Ribbon (y=922 to 1044) */}
@@ -460,4 +501,5 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
     </div>
   );
 };
+
 
