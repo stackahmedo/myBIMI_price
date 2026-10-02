@@ -71,6 +71,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
   const [batchMoveTargetFolder, setBatchMoveTargetFolder] = useState('');
   const [isBulkPriceEditOpen, setIsBulkPriceEditOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [excelImportTab, setExcelImportTab] = useState<'file' | 'weblink'>('file');
   const [productToClone, setProductToClone] = useState<Product | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -420,12 +421,29 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
             {/* Import Excel button */}
             <button
               type="button"
-              onClick={() => setIsExcelImportOpen(true)}
+              onClick={() => {
+                setExcelImportTab('file');
+                setIsExcelImportOpen(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
-              title="Bulk import products from Excel (.xlsx) or CSV"
+              title="Bulk import products from local Excel (.xlsx) or CSV"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
               <span>Import Excel</span>
+            </button>
+
+            {/* Google Sheets Link button */}
+            <button
+              type="button"
+              onClick={() => {
+                setExcelImportTab('weblink');
+                setIsExcelImportOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
+              title="Import or sync products from Google Sheets web link"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Google Sheets Link</span>
             </button>
 
             {/* Bulk Edit Tax & Prices Button */}
@@ -1068,6 +1086,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
         isOpen={isExcelImportOpen}
         onClose={() => setIsExcelImportOpen(false)}
         defaultFolderId={selectedFolder !== 'all' ? selectedFolder : undefined}
+        initialTab={excelImportTab}
       />
 
       {/* Clone to Shop / Multi-Shop Pricing Modal */}

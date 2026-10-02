@@ -15,9 +15,11 @@ import {
   X,
   Sparkles,
   FileSpreadsheet,
+  Globe,
+  Compass,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'products' | 'folders' | 'history';
+export type NavTab = 'dashboard' | 'products' | 'folders' | 'history' | 'architecture';
 
 interface TopNavProps {
   currentTab: NavTab;
@@ -25,7 +27,7 @@ interface TopNavProps {
   onOpenAddModal: () => void;
   onOpenLoginModal: () => void;
   onOpenPriceTagMaker: () => void;
-  onOpenExcelImport?: () => void;
+  onOpenExcelImport?: (initialTab?: 'file' | 'weblink') => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -45,8 +47,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-stone-200/90 bg-white/95 backdrop-blur-md px-3 sm:px-6 py-2.5 shadow-xs">
-      <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto">
+    <header className="sticky top-0 z-40 w-full border-b border-stone-200/90 bg-white/95 backdrop-blur-md px-3 sm:px-6 h-14 flex items-center shadow-xs">
+      <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto w-full">
         {/* Brand logo & title: BIMI TAG PRO in White, Red, Green, Orange palette */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
@@ -66,7 +68,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               </span>
             </div>
           </button>
-          <span className="text-[11px] text-stone-400 font-medium hidden xl:inline">
+          <span className="text-xs text-stone-400 font-medium hidden 2xl:inline whitespace-nowrap truncate max-w-[220px]">
             · Price Tag Maker & Food Retail Catalog
           </span>
         </div>
@@ -120,6 +122,19 @@ export const TopNav: React.FC<TopNavProps> = ({
             <History className="w-3.5 h-3.5 text-stone-600" />
             <span className="whitespace-nowrap">Audit Trail</span>
           </button>
+
+          <button
+            onClick={() => onTabChange('architecture')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all rounded-md ${
+              currentTab === 'architecture'
+                ? 'bg-blue-50 text-blue-900 border border-blue-200 shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+            title="Design System & Technical Architecture Blueprint"
+          >
+            <Compass className="w-3.5 h-3.5 text-blue-600" />
+            <span className="whitespace-nowrap">Design System</span>
+          </button>
         </nav>
 
         {/* Action Buttons: Red, Green, Orange accents */}
@@ -148,12 +163,24 @@ export const TopNav: React.FC<TopNavProps> = ({
           {/* Import Excel button */}
           {onOpenExcelImport && (
             <button
-              onClick={onOpenExcelImport}
+              onClick={() => onOpenExcelImport('file')}
               title="Bulk Import Products from Excel (.xlsx) or CSV"
               className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-md transition-colors shadow-2xs cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
               <span>Import Excel</span>
+            </button>
+          )}
+
+          {/* Google Sheets Link button */}
+          {onOpenExcelImport && (
+            <button
+              onClick={() => onOpenExcelImport('weblink')}
+              title="Copy & Paste Google Sheets link to import and sync products"
+              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-md transition-colors shadow-2xs cursor-pointer"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Google Sheets Link</span>
             </button>
           )}
 
@@ -257,18 +284,43 @@ export const TopNav: React.FC<TopNavProps> = ({
             </span>
           </button>
 
+          <button
+            onClick={() => handleNavSelect('architecture')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-md ${
+              currentTab === 'architecture' ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200' : 'text-stone-700 hover:bg-stone-50'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Compass className="w-4 h-4 text-blue-600" />
+              <span>Design System Architecture</span>
+            </span>
+          </button>
+
           {/* Mobile Extra Actions */}
           <div className="pt-2 mt-2 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 px-2 text-stone-600">
             {onOpenExcelImport && (
               <button
                 onClick={() => {
-                  onOpenExcelImport();
+                  onOpenExcelImport('file');
                   setMobileMenuOpen(false);
                 }}
                 className="flex items-center gap-1.5 py-1 text-emerald-800 font-bold"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
                 <span>Import Excel</span>
+              </button>
+            )}
+
+            {onOpenExcelImport && (
+              <button
+                onClick={() => {
+                  onOpenExcelImport('weblink');
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-1.5 py-1 text-emerald-800 font-bold"
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Google Sheets</span>
               </button>
             )}
 

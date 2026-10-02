@@ -15,6 +15,7 @@ import { StockAdjustModal } from './components/StockAdjustModal';
 import { AdminLoginModal } from './components/AdminLogin';
 import { PriceTagMakerModal } from './components/PriceTagMakerModal';
 import { ExcelBulkImportModal } from './components/ExcelBulkImportModal';
+import { DesignSystemArchitectureView } from './components/DesignSystemArchitectureView';
 import { Product } from './types/inventory';
 import { Tag } from 'lucide-react';
 
@@ -29,6 +30,7 @@ const MainAppContent: React.FC = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isPriceTagMakerOpen, setIsPriceTagMakerOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [excelImportTab, setExcelImportTab] = useState<'file' | 'weblink'>('file');
   const [tagMakerTargetProduct, setTagMakerTargetProduct] = useState<Product | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -68,7 +70,10 @@ const MainAppContent: React.FC = () => {
         onOpenAddModal={handleOpenAdd}
         onOpenLoginModal={() => setIsLoginOpen(true)}
         onOpenPriceTagMaker={() => handleOpenPriceTagMaker()}
-        onOpenExcelImport={() => setIsExcelImportOpen(true)}
+        onOpenExcelImport={(tab?: 'file' | 'weblink') => {
+          setExcelImportTab(tab || 'file');
+          setIsExcelImportOpen(true);
+        }}
       />
 
       {/* Main Workspace Canvas */}
@@ -87,7 +92,9 @@ const MainAppContent: React.FC = () => {
                 ? 'Analytics Dashboard'
                 : currentTab === 'folders'
                 ? 'Folders & Groups'
-                : 'Stock Audit Ledger'}
+                : currentTab === 'history'
+                ? 'Stock Audit Ledger'
+                : 'Design System & Architecture'}
             </span>
           </div>
 
@@ -121,6 +128,8 @@ const MainAppContent: React.FC = () => {
         )}
 
         {currentTab === 'history' && <AuditTrailView />}
+
+        {currentTab === 'architecture' && <DesignSystemArchitectureView />}
       </main>
 
       {/* Modals */}
@@ -158,6 +167,7 @@ const MainAppContent: React.FC = () => {
         isOpen={isExcelImportOpen}
         onClose={() => setIsExcelImportOpen(false)}
         defaultFolderId={activeFolderFilter !== 'all' ? activeFolderFilter : undefined}
+        initialTab={excelImportTab}
       />
 
       {/* Clean quiet footer */}
