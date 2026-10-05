@@ -3,7 +3,6 @@ import { useInventory } from '../context/InventoryContext';
 import { Product } from '../types/inventory';
 import {
   Search,
-  Filter,
   Plus,
   Edit2,
   Trash2,
@@ -24,7 +23,6 @@ import {
   ChevronDown,
   FileSpreadsheet,
   Store,
-  Copy,
 } from 'lucide-react';
 import { BulkPriceEditModal } from './BulkPriceEditModal';
 import { ExcelBulkImportModal } from './ExcelBulkImportModal';
@@ -36,6 +34,7 @@ interface ProductMasterGridProps {
   onAdjustStock: (product: Product) => void;
   onOpenPriceTagMaker: (product?: Product) => void;
   initialFolderFilter?: string;
+  initialSearchQuery?: string;
 }
 
 type SortField = 'serial' | 'product_name_eng' | 'stockQuantity' | 'price_without_tax' | 'price_with_tax' | 'origin';
@@ -44,16 +43,24 @@ type SortOrder = 'asc' | 'desc';
 export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
   onOpenAddModal,
   onEditProduct,
-  onAdjustStock,
+  onAdjustStock: _onAdjustStock,
   onOpenPriceTagMaker,
   initialFolderFilter = 'all',
+  initialSearchQuery = '',
 }) => {
   const { products, folders, deleteProduct, batchDeleteProducts, batchUpdateProducts, batchAssignFolder, exportCSV } = useInventory();
 
   // Filters & Search
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [selectedFolder, setSelectedFolder] = useState<string>(initialFolderFilter);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('all');
+
+  // Sync initialSearchQuery when changed from parent
+  React.useEffect(() => {
+    if (initialSearchQuery !== undefined) {
+      setSearchQuery(initialSearchQuery);
+    }
+  }, [initialSearchQuery]);
 
   // View mode toggle for mobile devices (card vs table)
   const [viewMode, setViewMode] = useState<'auto' | 'cards' | 'table'>('auto');
@@ -268,8 +275,8 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
       {/* Top Filter and Search Controls (Light Theme: White background with clean stone/red/green borders) */}
       <div className="p-3 sm:p-4 bg-white border border-stone-200 rounded-xl shadow-xs flex flex-col gap-3">
         {/* Row 1: Search input and Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          <div className="relative flex-1">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-stone-400" />
             <input
               type="text"
@@ -280,9 +287,9 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
             />
           </div>
 
-          {/* Quick View Mode Toggle on Mobile & Main Actions */}
-          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-            <div className="flex items-center bg-stone-100 p-0.5 rounded-lg border border-stone-200 text-xs">
+          {/* Quick View Mode Toggle & Main Actions (wrapped nicely on all viewports) */}
+          <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 min-w-0">
+            <div className="flex items-center bg-stone-100 p-0.5 rounded-lg border border-stone-200 text-xs shrink-0">
               <button
                 onClick={() => setViewMode('auto')}
                 className={`px-2 py-1 rounded transition-colors ${
@@ -318,7 +325,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownloadCSV('active')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-stone-700 bg-white hover:bg-stone-50 transition-colors rounded-l-lg"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-700 bg-white hover:bg-stone-50 transition-colors rounded-l-lg"
                   title={
                     hasActiveFilters
                       ? `Download currently filtered inventory (${sortedProducts.length} items) as CSV`
@@ -326,7 +333,8 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                   }
                 >
                   <Download className="w-3.5 h-3.5 text-stone-600" />
-                  <span>Download CSV</span>
+                  <span className="hidden sm:inline">Download CSV</span>
+                  <span className="sm:hidden">CSV</span>
                   {hasActiveFilters && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Filtered catalog" />
                   )}
@@ -425,11 +433,12 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                 setExcelImportTab('file');
                 setIsExcelImportOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
               title="Bulk import products from local Excel (.xlsx) or CSV"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Import Excel</span>
+              <span className="hidden sm:inline">Import Excel</span>
+              <span className="sm:hidden">Excel</span>
             </button>
 
             {/* Google Sheets Link button */}
@@ -439,17 +448,18 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                 setExcelImportTab('weblink');
                 setIsExcelImportOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer"
               title="Import or sync products from Google Sheets web link"
             >
               <Globe className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Google Sheets Link</span>
+              <span className="hidden sm:inline">Google Sheets Link</span>
+              <span className="sm:hidden">Sheets</span>
             </button>
 
             {/* Bulk Edit Tax & Prices Button */}
             <button
               onClick={handleOpenBulkEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-stone-700 bg-white hover:bg-stone-50 border border-stone-300 rounded-lg shadow-xs transition-colors shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-stone-700 bg-white hover:bg-stone-50 border border-stone-300 rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer"
               title="Bulk update tax percentage and prices simultaneously"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-red-600" />
@@ -459,16 +469,17 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
             {/* Print Price Tags button - Orange Accent */}
             <button
               onClick={() => onOpenPriceTagMaker()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg shadow-xs transition-colors shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-500 rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Make Tags</span>
+              <span className="hidden sm:inline">Make Tags</span>
+              <span className="sm:hidden">Tags</span>
             </button>
 
             {/* Add Product button - Green Accent */}
             <button
               onClick={onOpenAddModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs transition-colors shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add</span>
@@ -539,8 +550,8 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
               }}
               className="bg-stone-50 border border-stone-300 text-stone-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-red-500 font-mono"
             >
-              <option value="serial-asc">Serial (1 → 367)</option>
-              <option value="serial-desc">Serial (367 → 1)</option>
+              <option value="serial-asc">Serial (Lowest first)</option>
+              <option value="serial-desc">Serial (Highest first)</option>
               <option value="price_with_tax-desc">Price: High to Low</option>
               <option value="price_with_tax-asc">Price: Low to High</option>
               <option value="product_name_eng-asc">Name (A → Z)</option>
@@ -619,7 +630,19 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
           {sortedProducts.length === 0 ? (
             <div className="p-8 text-center text-stone-500 bg-white rounded-xl border border-stone-200">
               <Package className="w-8 h-8 mx-auto mb-2 text-stone-400 stroke-[1.5]" />
-              <p className="text-sm font-semibold text-stone-700">No products match your filter criteria.</p>
+              <p className="text-sm font-semibold text-stone-700">
+                {products.length === 0 ? 'No products in catalog yet.' : 'No products match your filter criteria.'}
+              </p>
+              {products.length === 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={onOpenAddModal}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
+                  >
+                    + Add First Product
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             sortedProducts.map(p => {
@@ -648,9 +671,9 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                       <span className="font-mono text-xs font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
                         #{p.serial}
                       </span>
-                      {folderMap.get(p.folderId) && (
+                      {folder && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 truncate max-w-[130px]">
-                          🏪 {folderMap.get(p.folderId)?.name}
+                          🏪 {folder.name}
                         </span>
                       )}
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-800 font-semibold uppercase">
@@ -729,7 +752,7 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                         Weight: <span className="text-stone-800 font-bold">{p.weight_unit}</span>
                       </div>
                       <div className="text-[11px] text-stone-500 font-mono">
-                        税抜: <span className="text-stone-700 font-semibold">¥{p.price_without_tax.toLocaleString()}</span> (税{p.tax_rate}%)
+                        税抜: <span className="text-stone-700 font-semibold">¥{p.price_without_tax.toLocaleString()}</span> (税{p.tax_rate > 0 && p.tax_rate <= 1.0 ? (p.tax_rate * 100).toFixed(0) : p.tax_rate}%)
                       </div>
                     </div>
 
@@ -789,7 +812,9 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
 
                 <th className="py-3 px-3">weight/pc/unit</th>
 
-                <th className="py-3 px-3 text-center">tax %</th>
+                <th className="py-3 px-3 text-center text-xs font-bold text-stone-600 tracking-tight whitespace-nowrap">
+                  tax %
+                </th>
 
                 <th className="py-3 px-3 text-right">
                   <button
@@ -832,7 +857,19 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-stone-400">
                     <Package className="w-8 h-8 mx-auto mb-2 text-stone-300 stroke-[1.5]" />
-                    <p className="text-sm font-semibold text-stone-700">No products match your filter criteria.</p>
+                    <p className="text-sm font-semibold text-stone-700">
+                      {products.length === 0 ? 'No products in catalog yet.' : 'No products match your filter criteria.'}
+                    </p>
+                    {products.length === 0 && (
+                      <div className="mt-3">
+                        <button
+                          onClick={onOpenAddModal}
+                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
+                        >
+                          + Add First Product
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -897,8 +934,30 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
                       </td>
 
                       {/* tax % */}
-                      <td className="py-2.5 px-3 text-center font-mono text-stone-600 whitespace-nowrap">
-                        {p.tax_rate.toFixed(1)}%
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        {(() => {
+                          let rate = typeof p.tax_rate === 'number' ? p.tax_rate : parseFloat(p.tax_rate);
+                          if (isNaN(rate) || rate <= 0) rate = 8.0;
+                          if (rate > 0 && rate <= 1.0) {
+                            rate = Math.round(rate * 100 * 10) / 10;
+                          }
+                          const isReducedFood = Math.abs(rate - 8) < 0.1;
+                          const isStandard = Math.abs(rate - 10) < 0.1;
+                          return (
+                            <span
+                              className={`inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded text-xs font-mono font-bold ${
+                                isReducedFood
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
+                                  : isStandard
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
+                                  : 'bg-stone-100 text-stone-700 border border-stone-200/80'
+                              }`}
+                              title={isReducedFood ? '8% 軽減税率 (Food & Groceries)' : isStandard ? '10% 標準税率 (Standard)' : `${rate}% Tax`}
+                            >
+                              {rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(1)}%
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* price_without_tax */}
@@ -1005,7 +1064,17 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
       {productToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
           <div className="relative w-full max-w-sm bg-white border border-stone-200 rounded-xl p-6 shadow-xl">
-            <h3 className="text-base font-bold text-stone-900 mb-2">Delete Product Price Tag?</h3>
+            {/* Top-Right Cross Sign Close Button */}
+            <button
+              type="button"
+              onClick={() => setProductToDelete(null)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              title="Close modal (Esc)"
+            >
+              <X className="w-4 h-4 stroke-[2]" />
+            </button>
+
+            <h3 className="text-base font-bold text-stone-900 mb-2 pr-8">Delete Product Price Tag?</h3>
             <p className="text-xs text-stone-600 mb-5">
               Are you sure you want to permanently delete{' '}
               <span className="font-bold text-stone-900">#{productToDelete.serial} {productToDelete.product_name_eng}</span>?
@@ -1015,14 +1084,14 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
               <button
                 type="button"
                 onClick={() => setProductToDelete(null)}
-                className="px-3.5 py-1.5 text-xs text-stone-600 hover:text-stone-900 font-semibold"
+                className="px-3.5 py-1.5 text-xs text-stone-600 hover:text-stone-900 font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors shadow-xs cursor-pointer"
               >
                 Confirm Delete
               </button>
@@ -1035,7 +1104,17 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
       {isBatchMoveOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
           <div className="relative w-full max-w-sm bg-white border border-stone-200 rounded-xl p-6 shadow-xl">
-            <h3 className="text-base font-bold text-stone-900 mb-2">Assign Selected to Folder</h3>
+            {/* Top-Right Cross Sign Close Button */}
+            <button
+              type="button"
+              onClick={() => setIsBatchMoveOpen(false)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              title="Close modal (Esc)"
+            >
+              <X className="w-4 h-4 stroke-[2]" />
+            </button>
+
+            <h3 className="text-base font-bold text-stone-900 mb-2 pr-8">Assign Selected to Folder</h3>
             <p className="text-xs text-stone-600 mb-4">
               Move <span className="font-bold text-stone-900">{selectedIds.length} items</span> to folder:
             </p>
@@ -1056,14 +1135,14 @@ export const ProductMasterGrid: React.FC<ProductMasterGridProps> = ({
               <button
                 type="button"
                 onClick={() => setIsBatchMoveOpen(false)}
-                className="px-3.5 py-1.5 text-xs text-stone-600 hover:text-stone-900 font-semibold"
+                className="px-3.5 py-1.5 text-xs text-stone-600 hover:text-stone-900 font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleBatchMoveSubmit}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors shadow-xs cursor-pointer"
               >
                 Apply Assignment
               </button>

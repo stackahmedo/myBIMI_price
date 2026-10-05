@@ -5,7 +5,9 @@
 
 import React, { useState } from 'react';
 import { InventoryProvider, useInventory } from './context/InventoryContext';
-import { TopNav, NavTab } from './components/TopNav';
+import { AppSidebar, SidebarTab } from './components/AppSidebar';
+import { AppTopBar } from './components/AppTopBar';
+import { DashboardView } from './components/DashboardView';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { ProductMasterGrid } from './components/ProductMasterGrid';
 import { FolderManager } from './components/FolderManager';
@@ -15,15 +17,18 @@ import { StockAdjustModal } from './components/StockAdjustModal';
 import { AdminLoginModal } from './components/AdminLogin';
 import { PriceTagMakerModal } from './components/PriceTagMakerModal';
 import { ExcelBulkImportModal } from './components/ExcelBulkImportModal';
+import { BulkPriceEditModal } from './components/BulkPriceEditModal';
 import { DesignSystemArchitectureView } from './components/DesignSystemArchitectureView';
 import { Product } from './types/inventory';
-import { Tag } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
-  const { products, adminUser } = useInventory();
+  const { products, batchUpdateProducts } = useInventory();
 
-  // Navigation tab - default to products so user immediately sees their table
-  const [currentTab, setCurrentTab] = useState<NavTab>('products');
+  // Navigation tab - default to 'dashboard' as requested by reference image!
+  const [currentTab, setCurrentTab] = useState<SidebarTab>('dashboard');
+
+  // Mobile sidebar drawer state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Modals state
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -31,15 +36,26 @@ const MainAppContent: React.FC = () => {
   const [isPriceTagMakerOpen, setIsPriceTagMakerOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [excelImportTab, setExcelImportTab] = useState<'file' | 'weblink'>('file');
+  const [isBulkPriceEditOpen, setIsBulkPriceEditOpen] = useState(false);
+  const [bulkEditProductIds, setBulkEditProductIds] = useState<string[]>([]);
   const [tagMakerTargetProduct, setTagMakerTargetProduct] = useState<Product | null>(null);
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
   const [activeFolderFilter, setActiveFolderFilter] = useState<string>('all');
+  const [activeStoreFilter, setActiveStoreFilter] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSelectFolderToView = (folderId: string) => {
     setActiveFolderFilter(folderId);
     setCurrentTab('products');
+  };
+
+  const handleSelectStoreFilter = (storeName: string) => {
+    setActiveStoreFilter(storeName);
+    if (storeName === 'All') {
+      setActiveFolderFilter('all');
+    }
   };
 
   const handleOpenAdd = () => {
@@ -61,76 +77,112 @@ const MainAppContent: React.FC = () => {
     setIsPriceTagMakerOpen(true);
   };
 
+  const handleOpenBulkEdit = () => {
+    setBulkEditProductIds(products.slice(0, 10).map(p => p.id));
+    setIsBulkPriceEditOpen(true);
+  };
+
+  const handleTabChange = (tab: SidebarTab) => {
+    if (tab === 'pricetags') {
+      handleOpenPriceTagMaker();
+      return;
+    }
+    if (tab === 'import') {
+      setExcelImportTab('file');
+      setIsExcelImportOpen(true);
+      return;
+    }
+    if (tab === 'settings') {
+      setIsLoginOpen(true);
+      return;
+    }
+    setCurrentTab(tab);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Top Bar Header */}
-      <TopNav
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-['Plus_Jakarta_Sans',sans-serif] w-full overflow-x-hidden">
+      {/* Left Sidebar Navigation matching reference image */}
+      <AppSidebar
         currentTab={currentTab}
-        onTabChange={tab => setCurrentTab(tab)}
-        onOpenAddModal={handleOpenAdd}
+        onTabChange={handleTabChange}
+        activeStoreFilter={activeStoreFilter}
+        onSelectStoreFilter={handleSelectStoreFilter}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
         onOpenLoginModal={() => setIsLoginOpen(true)}
-        onOpenPriceTagMaker={() => handleOpenPriceTagMaker()}
-        onOpenExcelImport={(tab?: 'file' | 'weblink') => {
-          setExcelImportTab(tab || 'file');
-          setIsExcelImportOpen(true);
-        }}
       />
 
-      {/* Main Workspace Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        {/* Context Breadcrumb & Workspace Status */}
-        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 sm:pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 overflow-x-auto whitespace-nowrap">
-            <span className="font-bold text-red-600 tracking-tight">BIMI TAG PRO</span>
-            <span aria-hidden="true" className="text-slate-300">/</span>
-            <span>Price Tag Engine</span>
-            <span aria-hidden="true" className="text-slate-300">/</span>
-            <span className="text-slate-900 font-semibold capitalize">
-              {currentTab === 'products'
-                ? 'Price Tag Catalog'
-                : currentTab === 'dashboard'
-                ? 'Analytics Dashboard'
-                : currentTab === 'folders'
-                ? 'Folders & Groups'
-                : currentTab === 'history'
-                ? 'Stock Audit Ledger'
-                : 'Design System & Architecture'}
-            </span>
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-slate-50">
+        {/* Top Bar Header matching reference image */}
+        <AppTopBar
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenPriceTagMaker={() => handleOpenPriceTagMaker()}
+          onOpenAddProduct={handleOpenAdd}
+          onOpenExcelImport={(tab?: 'file' | 'weblink') => {
+            setExcelImportTab(tab || 'file');
+            setIsExcelImportOpen(true);
+          }}
+          searchQuery={searchQuery}
+          onSearchChange={q => {
+            setSearchQuery(q);
+            if (q && currentTab !== 'products') {
+              // Automatically switch to products when typing a search query
+              setCurrentTab('products');
+            }
+          }}
+        />
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 text-xs text-slate-500">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              <span className="text-emerald-700 font-medium">BIMI Cloud Sync</span>
-            </span>
-            <span aria-hidden="true" className="hidden sm:inline text-slate-300">·</span>
-            <span className="text-slate-500 font-mono text-[11px] sm:text-xs truncate max-w-[140px] sm:max-w-none">
-              Admin: <span className="text-slate-800 font-semibold">{adminUser?.name || 'Authorized'}</span>
-            </span>
-          </div>
-        </div>
+        {/* Main Canvas */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 min-w-0">
+          {/* Tab View Routing */}
+          {currentTab === 'dashboard' && (
+            <DashboardView
+              onNavigateTab={tab => setCurrentTab(tab)}
+              onOpenPriceTagMaker={handleOpenPriceTagMaker}
+              onOpenAddProduct={handleOpenAdd}
+              onOpenExcelImport={(tab?: 'file' | 'weblink') => {
+                setExcelImportTab(tab || 'file');
+                setIsExcelImportOpen(true);
+              }}
+              onOpenBulkEdit={handleOpenBulkEdit}
+              onSelectProductToEdit={handleEdit}
+              onSelectStoreFilter={handleSelectStoreFilter}
+            />
+          )}
 
-        {/* Tab View Routing */}
-        {currentTab === 'products' && (
-          <ProductMasterGrid
-            onOpenAddModal={handleOpenAdd}
-            onEditProduct={handleEdit}
-            onAdjustStock={handleAdjustStock}
-            onOpenPriceTagMaker={handleOpenPriceTagMaker}
-            initialFolderFilter={activeFolderFilter}
-          />
-        )}
+          {currentTab === 'products' && (
+            <ProductMasterGrid
+              onOpenAddModal={handleOpenAdd}
+              onEditProduct={handleEdit}
+              onAdjustStock={handleAdjustStock}
+              onOpenPriceTagMaker={handleOpenPriceTagMaker}
+              initialFolderFilter={activeFolderFilter}
+              initialSearchQuery={searchQuery}
+            />
+          )}
 
-        {currentTab === 'dashboard' && <AnalyticsDashboard />}
+          {currentTab === 'folders' && (
+            <FolderManager onSelectFolderToView={handleSelectFolderToView} />
+          )}
 
-        {currentTab === 'folders' && (
-          <FolderManager onSelectFolderToView={handleSelectFolderToView} />
-        )}
+          {currentTab === 'stock' && (
+            <ProductMasterGrid
+              onOpenAddModal={handleOpenAdd}
+              onEditProduct={handleEdit}
+              onAdjustStock={handleAdjustStock}
+              onOpenPriceTagMaker={handleOpenPriceTagMaker}
+              initialFolderFilter={activeFolderFilter}
+            />
+          )}
 
-        {currentTab === 'history' && <AuditTrailView />}
+          {currentTab === 'analytics' && <AnalyticsDashboard />}
 
-        {currentTab === 'architecture' && <DesignSystemArchitectureView />}
-      </main>
+          {currentTab === 'history' && <AuditTrailView />}
+
+          {currentTab === 'architecture' && <DesignSystemArchitectureView />}
+        </main>
+      </div>
 
       {/* Modals */}
       <ProductFormModal
@@ -170,18 +222,16 @@ const MainAppContent: React.FC = () => {
         initialTab={excelImportTab}
       />
 
-      {/* Clean quiet footer */}
-      <footer className="border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-500 font-mono flex flex-col sm:flex-row items-center justify-between gap-2 max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <span className="inline-block w-2.5 h-2.5 bg-red-600 rounded-sm"></span>
-          <span className="font-bold text-slate-800">BIMI TAG PRO</span>
-          <span className="text-slate-400">·</span>
-          <span>Bilingual Price Tag Master</span>
-        </div>
-        <div className="text-[11px] text-slate-400">
-          serial · product_name_eng · product_name_jp · weight/pc/unit · tax % · price_without_tax · price_with_tax · origin
-        </div>
-      </footer>
+      <BulkPriceEditModal
+        isOpen={isBulkPriceEditOpen}
+        onClose={() => setIsBulkPriceEditOpen(false)}
+        products={products}
+        selectedProductIds={bulkEditProductIds}
+        onApplyBulkUpdate={(updates, reason) => {
+          batchUpdateProducts(updates, reason);
+          setIsBulkPriceEditOpen(false);
+        }}
+      />
     </div>
   );
 };

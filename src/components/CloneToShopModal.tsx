@@ -3,13 +3,8 @@ import { Product } from '../types/inventory';
 import { useInventory } from '../context/InventoryContext';
 import {
   Store,
-  ArrowRight,
   Copy,
-  CheckCircle2,
   X,
-  Percent,
-  Sparkles,
-  Tag,
 } from 'lucide-react';
 
 interface CloneToShopModalProps {
@@ -53,7 +48,6 @@ export const CloneToShopModal: React.FC<CloneToShopModalProps> = ({
 
   if (!isOpen || !product) return null;
 
-  const selectedTargetFolder = folders.find(f => f.id === targetFolderId);
   const priceWithTax = Math.round(priceWithoutTax * (1 + taxRate / 100));
   const priceDiff = priceWithoutTax - product.price_without_tax;
   const percentDiff = product.price_without_tax > 0 ? ((priceDiff / product.price_without_tax) * 100).toFixed(1) : '0';
@@ -98,9 +92,10 @@ export const CloneToShopModal: React.FC<CloneToShopModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-200/60 transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-200/70 transition-colors cursor-pointer shrink-0"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2]" />
           </button>
         </div>
 

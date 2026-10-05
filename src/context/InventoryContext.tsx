@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, ProductFolder, FolderType, StockTransaction, AdminUser, UnitOfMeasure } from '../types/inventory';
+import { Product, ProductFolder, FolderType, StockTransaction, AdminUser } from '../types/inventory';
 import { INITIAL_FOLDERS, INITIAL_PRODUCTS, INITIAL_TRANSACTIONS, calculateStatus } from '../data/initialData';
 
 interface InventoryContextType {
@@ -79,6 +79,7 @@ interface InventoryContextType {
     targetFolderId: string,
     priceMultiplier?: number
   ) => number;
+  clearAllData: () => void;
   resetToDemo: () => void;
   exportCSV: (itemsToExport?: Product[], customFilename?: string) => void;
 }
@@ -86,11 +87,21 @@ interface InventoryContextType {
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'bimi_tag_pro_products_catalog_exact_367',
-  FOLDERS: 'bimi_tag_pro_folders_catalog_exact_367',
-  TRANSACTIONS: 'bimi_tag_pro_transactions_catalog_exact_367',
-  AUTH: 'bimi_tag_pro_admin_auth_exact_367',
+  PRODUCTS: 'card_studio_products_catalog_v2',
+  FOLDERS: 'card_studio_folders_catalog_v2',
+  TRANSACTIONS: 'card_studio_transactions_catalog_v2',
+  AUTH: 'card_studio_admin_auth_v2',
 };
+
+// Purge any legacy sample/demo data from browser storage
+try {
+  localStorage.removeItem('bimi_tag_pro_products_catalog_exact_367');
+  localStorage.removeItem('bimi_tag_pro_folders_catalog_exact_367');
+  localStorage.removeItem('bimi_tag_pro_transactions_catalog_exact_367');
+  localStorage.removeItem('bimi_tag_pro_admin_auth_exact_367');
+} catch {
+  // Ignore in SSR/restricted environments
+}
 
 const DEFAULT_ADMIN: AdminUser = {
   id: 'usr-admin-01',
@@ -106,8 +117,24 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 367 && parsed[0].product_name_eng) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.map((p: any) => {
+            let tr = typeof p.tax_rate === 'number' ? p.tax_rate : parseFloat(p.tax_rate);
+            if (isNaN(tr) || tr <= 0) tr = 8.0;
+            // Excel decimal fraction correction: 0.1 -> 10.0%, 0.08 -> 8.0%
+            if (tr > 0 && tr <= 1.0) {
+              tr = Math.round(tr * 100 * 10) / 10;
+            }
+            const priceEx = typeof p.price_without_tax === 'number' ? p.price_without_tax : 0;
+            const recalcInc = Math.round(priceEx * (1 + tr / 100));
+            // If previous price_with_tax was computed with 0.1% tax, recalculate to correct 8% or 10%
+            const needsRecalc = !p.price_with_tax || Math.abs(p.price_with_tax - priceEx) <= 2;
+            return {
+              ...p,
+              tax_rate: tr,
+              price_with_tax: needsRecalc ? recalcInc : p.price_with_tax,
+            };
+          });
         }
       }
     } catch (e) {
@@ -613,7 +640,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const updatedMap = new Map<string, Partial<Product>>();
 
     items.forEach(item => {
-      const taxRate = item.tax_rate !== undefined && !isNaN(Number(item.tax_rate)) ? Number(item.tax_rate) : 8.0;
+      let taxRate = item.tax_rate !== undefined && !isNaN(Number(item.tax_rate)) ? Number(item.tax_rate) : 8.0;
+      if (taxRate > 0 && taxRate <= 1.0) {
+        // Excel stores 10% as 0.1 and 8% as 0.08
+        taxRate = Math.round(taxRate * 100 * 10) / 10;
+      }
       const priceEx = Math.max(0, Math.round(Number(item.price_without_tax) || 0));
       const priceInc = item.price_with_tax && !isNaN(Number(item.price_with_tax))
         ? Math.round(Number(item.price_with_tax))
@@ -708,12 +739,24 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { imported, updated, total: items.length };
   };
 
+  const clearAllData = () => {
+    setProducts([]);
+    setFolders([]);
+    setTransactions([]);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
+      localStorage.removeItem(STORAGE_KEYS.FOLDERS);
+      localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+      localStorage.removeItem('bimi_tag_pro_products_catalog_exact_367');
+      localStorage.removeItem('bimi_tag_pro_folders_catalog_exact_367');
+      localStorage.removeItem('bimi_tag_pro_transactions_catalog_exact_367');
+    } catch (e) {
+      console.error('Error clearing data', e);
+    }
+  };
+
   const resetToDemo = () => {
-    setProducts(INITIAL_PRODUCTS);
-    setFolders(INITIAL_FOLDERS);
-    setTransactions(INITIAL_TRANSACTIONS);
-    setAdminUser(DEFAULT_ADMIN);
-    localStorage.clear();
+    clearAllData();
   };
 
   const exportCSV = (itemsToExport?: Product[], customFilename?: string) => {
@@ -819,6 +862,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         bulkImportProducts,
         duplicateProductToFolder,
         batchDuplicateToFolder,
+        clearAllData,
         resetToDemo,
         exportCSV,
       }}

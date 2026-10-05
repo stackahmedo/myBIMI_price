@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 /* -------------------------------------------------------------
    BIMI TAG PRO - PHYSICAL A4 PRINT ENGINE
    Exact 210mm x 297mm A4 Portrait Geometry

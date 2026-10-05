@@ -88,7 +88,7 @@ export const AuditTrailView: React.FC = () => {
       {/* Ledger Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[680px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-mono font-semibold">
                 <th className="py-3 px-4">Timestamp</th>

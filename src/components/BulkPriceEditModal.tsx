@@ -3,17 +3,12 @@ import { Product } from '../types/inventory';
 import {
   X,
   Percent,
-  TrendingUp,
   DollarSign,
   AlertCircle,
   Check,
-  RefreshCw,
   ArrowRight,
   SlidersHorizontal,
-  ChevronRight,
-  Tag,
   Search,
-  Trash2
 } from 'lucide-react';
 
 interface BulkPriceEditModalProps {
@@ -98,7 +93,7 @@ export const BulkPriceEditModal: React.FC<BulkPriceEditModalProps> = ({
     const numAdj = parseFloat(adjustmentValue) || 0;
 
     return targetProducts.map(p => {
-      const origTax = p.tax_rate;
+      const origTax = p.tax_rate > 0 && p.tax_rate <= 1.0 ? Math.round(p.tax_rate * 100 * 10) / 10 : p.tax_rate;
       const origBase = p.price_without_tax;
       const origWithTax = p.price_with_tax;
 
@@ -251,9 +246,10 @@ export const BulkPriceEditModal: React.FC<BulkPriceEditModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer shrink-0"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2]" />
           </button>
         </div>
 
@@ -570,8 +566,8 @@ export const BulkPriceEditModal: React.FC<BulkPriceEditModalProps> = ({
               </div>
             </div>
 
-            <div className="border border-stone-200 rounded-xl overflow-hidden bg-white max-h-64 overflow-y-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="border border-stone-200 rounded-xl overflow-hidden bg-white max-h-64 overflow-y-auto overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse min-w-[620px]">
                 <thead className="sticky top-0 bg-stone-100 border-b border-stone-200 text-stone-600 text-[10px] uppercase font-mono font-bold z-10">
                   <tr>
                     <th className="py-2 px-3">Serial & Item</th>

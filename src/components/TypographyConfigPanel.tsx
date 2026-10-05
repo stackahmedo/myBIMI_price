@@ -12,7 +12,6 @@ import {
 import {
   Type,
   RotateCcw,
-  Sparkles,
   Check,
   Languages,
   DollarSign,

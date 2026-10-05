@@ -1,39 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import {
-  Layers,
   Palette,
   Type,
   Maximize2,
   Printer,
   Database,
-  ArrowRight,
   Check,
   Copy,
-  ExternalLink,
   Code,
   FileSpreadsheet,
   Globe,
-  Sliders,
   Sparkles,
-  ShieldCheck,
   Compass,
-  Scissors,
-  Download,
-  Info,
   Box,
-  LayoutGrid,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  HelpCircle,
-  RefreshCw,
-  Tag,
-  Store,
-  Eye,
-  Settings2,
+  X,
 } from 'lucide-react';
-import { MyBimiPriceCardSvg, getMyBimiCardSvgString } from './MyBimiPriceCardSvg';
+import { MyBimiPriceCardSvg } from './MyBimiPriceCardSvg';
 import {
   Product,
   PriceCardTypographyConfig,
@@ -213,13 +196,9 @@ export const DesignSystemArchitectureView: React.FC = () => {
 
   // Typography Lab interactive state
   const [specimenConfig, setSpecimenConfig] = useState<PriceCardTypographyConfig>(DEFAULT_TYPOGRAPHY_CONFIG);
-  const [specimenJpText, setSpecimenJpText] = useState('豪州産 特選和牛リブアイステーキ');
-  const [specimenEnText, setSpecimenEnText] = useState('PREMIUM AUSTRALIAN WAGYU RIBEYE');
-  const [specimenPrice, setSpecimenPrice] = useState(2980);
-  const [specimenShowCrop, setSpecimenShowCrop] = useState(true);
-
-  // Multi-Shop Comparator State
-  const [comparatorProductId, setComparatorProductId] = useState<string>(products[0]?.id || 'demo-sample-1');
+  const specimenJpText = '豪州産 特選和牛リブアイステーキ';
+  const specimenEnText = 'PREMIUM AUSTRALIAN WAGYU RIBEYE';
+  const specimenPrice = 2980;
 
   // Token Export Modal State
   const [isExportTokensOpen, setIsExportTokensOpen] = useState(false);
@@ -630,8 +609,10 @@ module.exports = {
             </h3>
             <div className="font-mono text-xs text-stone-700 bg-stone-50 p-4 rounded-xl border border-stone-200 overflow-x-auto leading-relaxed">
               <div>App.tsx (Root Shell)</div>
-              <div>├── TopNav.tsx (Primary Brand &amp; Module Router)</div>
+              <div>├── AppSidebar.tsx (Brand Navigation &amp; Store Switcher)</div>
+              <div>├── AppTopBar.tsx (Global Command Search &amp; Quick Actions)</div>
               <div>├── InventoryContext.tsx (Authoritative State Provider)</div>
+              <div>│   ├── DashboardView.tsx (Overview KPIs, Creation Trends &amp; Category Donut)</div>
               <div>│   ├── ProductMasterGrid.tsx (Live Catalog, Multi-Shop Sibling Badges)</div>
               <div>│   │   ├── BulkPriceEditModal.tsx (Batch Tax &amp; Margin Engine)</div>
               <div>│   │   ├── CloneToShopModal.tsx (Branch Duplication Engine)</div>
@@ -1498,30 +1479,42 @@ module.exports = {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 bg-stone-200/80 p-0.5 rounded-lg text-xs font-bold">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-stone-200/80 p-0.5 rounded-lg text-xs font-bold">
+                  <button
+                    onClick={() => setExportTokenFormat('json')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      exportTokenFormat === 'json' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
+                    }`}
+                  >
+                    JSON
+                  </button>
+                  <button
+                    onClick={() => setExportTokenFormat('css')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      exportTokenFormat === 'css' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
+                    }`}
+                  >
+                    CSS
+                  </button>
+                  <button
+                    onClick={() => setExportTokenFormat('tailwind')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      exportTokenFormat === 'tailwind' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
+                    }`}
+                  >
+                    Tailwind
+                  </button>
+                </div>
+
+                {/* Top-Right Cross Sign Close Button */}
                 <button
-                  onClick={() => setExportTokenFormat('json')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    exportTokenFormat === 'json' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
-                  }`}
+                  type="button"
+                  onClick={() => setIsExportTokensOpen(false)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-200/70 transition-colors cursor-pointer shrink-0 ml-1"
+                  title="Close modal (Esc)"
                 >
-                  JSON
-                </button>
-                <button
-                  onClick={() => setExportTokenFormat('css')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    exportTokenFormat === 'css' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
-                  }`}
-                >
-                  CSS
-                </button>
-                <button
-                  onClick={() => setExportTokenFormat('tailwind')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    exportTokenFormat === 'tailwind' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
-                  }`}
-                >
-                  Tailwind
+                  <X className="w-5 h-5 stroke-[2]" />
                 </button>
               </div>
             </div>

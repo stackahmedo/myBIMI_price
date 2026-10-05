@@ -10,14 +10,11 @@ import {
   X,
   Store,
   RefreshCw,
-  FileText,
   HelpCircle,
   Link as LinkIcon,
   Globe,
   ClipboardPaste,
   Sparkles,
-  ExternalLink,
-  Save,
   Check,
   Zap,
 } from 'lucide-react';
@@ -181,7 +178,11 @@ export const ExcelBulkImportModal: React.FC<ExcelBulkImportModalProps> = ({
       });
 
       const priceWithoutTax = Math.max(0, Math.round(cleanNumber(priceExStr)));
-      const taxRate = taxRateStr ? cleanNumber(taxRateStr) : 8.0;
+      let taxRate = taxRateStr ? cleanNumber(taxRateStr) : 8.0;
+      if (taxRate > 0 && taxRate <= 1.0) {
+        // Excel stores 10% as 0.10 and 8% as 0.08
+        taxRate = Math.round(taxRate * 100 * 10) / 10;
+      }
       let priceWithTax = cleanNumber(priceIncStr);
       if (priceWithTax <= 0 && priceWithoutTax > 0) {
         priceWithTax = Math.round(priceWithoutTax * (1 + taxRate / 100));
@@ -478,9 +479,10 @@ export const ExcelBulkImportModal: React.FC<ExcelBulkImportModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-200/60 transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-200/70 border border-stone-200 hover:border-stone-300 transition-all cursor-pointer shrink-0"
+              title="Close (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 stroke-[2]" />
             </button>
           </div>
         </div>
@@ -871,8 +873,8 @@ export const ExcelBulkImportModal: React.FC<ExcelBulkImportModalProps> = ({
                 </div>
               </div>
 
-              <div className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-2xs max-h-[300px] overflow-y-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-2xs max-h-[300px] overflow-y-auto overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse min-w-[750px]">
                   <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 text-[11px] uppercase tracking-wider sticky top-0 font-bold z-10">
                     <tr>
                       <th className="py-2.5 px-3">#</th>

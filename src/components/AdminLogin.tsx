@@ -40,10 +40,12 @@ export const AdminLoginModal: React.FC<AdminLoginProps> = ({ isOpen, onClose }) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 shadow-2xl">
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-md hover:bg-slate-100"
+          className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          title="Close modal (Esc)"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 stroke-[2]" />
         </button>
 
         <div className="flex items-center gap-3 mb-5">

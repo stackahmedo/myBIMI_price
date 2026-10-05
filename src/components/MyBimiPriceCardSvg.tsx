@@ -118,15 +118,15 @@ export const getMyBimiCardSvgString = (
   if (jpLines.length > 1) {
     baseJpFontSize = rawJp.length <= 22 ? 58 : (rawJp.length <= 32 ? 48 : 42);
     const jpFontSize = Math.round(baseJpFontSize * jpScale);
-    const w0 = Math.min(1360, Math.round(jpLines[0].length * jpFontSize * 1.05));
-    const w1 = Math.min(1360, Math.round(jpLines[1].length * jpFontSize * 1.05));
-    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}"${w1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[1])}</tspan>`;
+    const rawW0 = Math.round(jpLines[0].length * jpFontSize * 1.05);
+    const rawW1 = Math.round(jpLines[1].length * jpFontSize * 1.05);
+    jpTspan = `<tspan x="64" y="335" font-size="${jpFontSize}"${rawW0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan><tspan x="64" y="${335 + jpFontSize + 12}" font-size="${jpFontSize}"${rawW1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[1])}</tspan>`;
     enStartY = 335 + jpFontSize + 12 + 62;
   } else {
     baseJpFontSize = rawJp.length <= 11 ? 76 : (rawJp.length <= 16 ? 62 : (rawJp.length <= 22 ? 52 : 44));
     const jpFontSize = Math.round(baseJpFontSize * jpScale);
-    const w0 = Math.round(jpLines[0].length * jpFontSize * 1.05);
-    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan>`;
+    const rawW0 = Math.round(jpLines[0].length * jpFontSize * 1.05);
+    jpTspan = `<tspan x="64" y="375" font-size="${jpFontSize}"${rawW0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(jpLines[0])}</tspan>`;
     enStartY = 475;
   }
 
@@ -139,14 +139,14 @@ export const getMyBimiCardSvgString = (
   if (enLines.length > 1) {
     baseEnFontSize = rawEn.length <= 30 ? 54 : 44;
     const enFontSize = Math.round(baseEnFontSize * enScale);
-    const w0 = Math.round(enLines[0].length * enFontSize * 0.65);
-    const w1 = Math.round(enLines[1].length * enFontSize * 0.65);
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}"${w1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[1])}</tspan>`;
+    const rawEnW0 = Math.round(enLines[0].length * enFontSize * 0.65);
+    const rawEnW1 = Math.round(enLines[1].length * enFontSize * 0.65);
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${rawEnW0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan><tspan x="64" y="${enStartY + enFontSize + 10}" font-size="${enFontSize}"${rawEnW1 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[1])}</tspan>`;
   } else {
     baseEnFontSize = rawEn.length <= 14 ? 80 : (rawEn.length <= 22 ? 66 : 52);
     const enFontSize = Math.round(baseEnFontSize * enScale);
-    const w0 = Math.round(enLines[0].length * enFontSize * 0.65);
-    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${w0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan>`;
+    const rawEnW0 = Math.round(enLines[0].length * enFontSize * 0.65);
+    enTspan = `<tspan x="64" y="${enStartY}" font-size="${enFontSize}"${rawEnW0 > 1360 ? ` textLength="1360" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeXml(enLines[0])}</tspan>`;
   }
 
   // 3. Weight Typography (Strictly constrained within 420px to avoid right-side collision)
@@ -177,6 +177,7 @@ export const getMyBimiCardSvgString = (
   const priceExTextLenAttr = estPriceWidth > maxPriceExWidth ? `textLength="${maxPriceExWidth}" lengthAdjust="spacingAndGlyphs"` : '';
 
   const incTaxFontSize = Math.round(105 * priceScale);
+  const displayTaxRate = product.tax_rate > 0 && product.tax_rate <= 1.0 ? Math.round(product.tax_rate * 100 * 10) / 10 : product.tax_rate;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1507 1044" width="1507" height="1044" style="text-rendering: geometricPrecision; shape-rendering: geometricPrecision;">
@@ -256,7 +257,7 @@ export const getMyBimiCardSvgString = (
   <line id="Tax_Divider" x1="700" y1="794" x2="700" y2="905" stroke="#cfcfcf" stroke-width="3"/>
 
   <!-- Tax rate & Inc-tax price -->
-  <text id="Tax_Rate_Label" x="735" y="884" class="sans" font-size="56" font-weight="800" fill="#000000">${product.tax_rate}%税込</text>
+  <text id="Tax_Rate_Label" x="735" y="884" class="sans" font-size="56" font-weight="800" fill="#000000">${displayTaxRate}%税込</text>
   <text id="Price_IncTax" x="1360" y="894" text-anchor="end" class="price" font-size="${incTaxFontSize}" font-weight="900" fill="#000000">${taxInc}</text>
   <text id="Price_IncTax_Yen" x="1440" y="891" text-anchor="end" class="sans" font-size="62" font-weight="900" fill="#000000">円</text>
 
@@ -480,7 +481,9 @@ export const MyBimiPriceCardSvg: React.FC<MyBimiPriceCardProps> = ({
         <line x1="700" y1="794" x2="700" y2="905" stroke="#cfcfcf" strokeWidth="3" />
 
         {/* Tax Rate & Inc-Tax Price */}
-        <text x="735" y="884" className="card-sans" fontSize="56" fontWeight="800" fill="#000000">{product.tax_rate}%税込</text>
+        <text x="735" y="884" className="card-sans" fontSize="56" fontWeight="800" fill="#000000">
+          {product.tax_rate > 0 && product.tax_rate <= 1.0 ? Math.round(product.tax_rate * 100 * 10) / 10 : product.tax_rate}%税込
+        </text>
         <text x="1360" y="894" textAnchor="end" className="card-price" fontSize={incTaxFontSize} fontWeight="900" fill="#000000">{taxInc}</text>
         <text x="1440" y="891" textAnchor="end" className="card-sans" fontSize="62" fontWeight="900" fill="#000000">円</text>
 

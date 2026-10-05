@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { Product } from '../types/inventory';
-import { X, Tag, Calculator, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Tag, Calculator, AlertCircle } from 'lucide-react';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -72,7 +72,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setProductNameEng(productToEdit.product_name_eng || productToEdit.name);
       setProductNameJp(productToEdit.product_name_jp || '');
       setWeightUnit(productToEdit.weight_unit || '1pc');
-      setTaxRate(productToEdit.tax_rate ?? 8.0);
+      let tr = productToEdit.tax_rate ?? 8.0;
+      if (tr > 0 && tr <= 1.0) tr = Math.round(tr * 100 * 10) / 10;
+      setTaxRate(tr);
       setPriceWithoutTax(String(productToEdit.price_without_tax ?? 0));
       setPriceWithTax(String(productToEdit.price_with_tax ?? 0));
       setOrigin(productToEdit.origin || 'UNKNOWN');
@@ -205,9 +207,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       <div className="relative w-full max-w-2xl bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 shadow-2xl my-4 sm:my-8 max-h-[96vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-md transition-colors"
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+          title="Close (Esc)"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 stroke-[2]" />
         </button>
 
         <div className="flex items-center gap-2 mb-1">
@@ -299,7 +302,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 className="w-full px-3 py-1.5 text-xs font-mono uppercase bg-stone-50 border border-stone-300 rounded-lg text-stone-900 focus:outline-none focus:border-red-500 focus:bg-white font-bold"
               />
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {['JAPAN', 'BANGLADESH', 'PAKISTAN', 'VIETNAM'].map(c => (
+                {COMMON_ORIGINS.slice(0, 4).map(c => (
                   <button
                     key={c}
                     type="button"

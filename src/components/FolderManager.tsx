@@ -10,16 +10,11 @@ import {
   ArrowRight, 
   Check, 
   X,
-  Layers,
-  TrendingUp,
   Percent,
   Plus,
   RefreshCw,
   Search,
   Tag,
-  Copy,
-  ChevronRight,
-  Sparkles,
 } from 'lucide-react';
 import { CloneToShopModal } from './CloneToShopModal';
 
@@ -657,7 +652,20 @@ export const FolderManager: React.FC<FolderManagerProps> = ({ onSelectFolderToVi
       {(isAddModalOpen || editingFolder) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white border border-stone-200 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-base font-black text-stone-900 mb-1">
+            {/* Top-Right Cross Sign Close Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddModalOpen(false);
+                setEditingFolder(null);
+              }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              title="Close modal (Esc)"
+            >
+              <X className="w-5 h-5 stroke-[2]" />
+            </button>
+
+            <h3 className="text-base font-black text-stone-900 mb-1 pr-8">
               {editingFolder ? 'Edit Store Branch or Folder' : 'Create New Store Branch or Folder'}
             </h3>
             <p className="text-xs text-stone-500 mb-4">
@@ -820,7 +828,17 @@ export const FolderManager: React.FC<FolderManagerProps> = ({ onSelectFolderToVi
       {deletingFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
           <div className="relative w-full max-w-md bg-white border border-stone-200 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-stone-900 mb-2">Delete Store &amp; Reassign Products</h3>
+            {/* Top-Right Cross Sign Close Button */}
+            <button
+              type="button"
+              onClick={() => setDeletingFolder(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              title="Close modal (Esc)"
+            >
+              <X className="w-5 h-5 stroke-[2]" />
+            </button>
+
+            <h3 className="text-base font-bold text-stone-900 mb-2 pr-8">Delete Store &amp; Reassign Products</h3>
             <p className="text-xs text-stone-600 mb-4">
               You are about to delete <span className="font-bold text-red-600">{deletingFolder.name}</span>.
               Please select where products belonging to this location should be transferred:

@@ -19,16 +19,13 @@ import {
   Square,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Maximize2,
   Grid3X3,
   Scissors,
-  Check,
   Loader2,
   HelpCircle,
   Search,
   Store,
-  Filter,
   Type,
 } from 'lucide-react';
 import { MyBimiPriceCardSvg, getMyBimiCardSvgString } from './MyBimiPriceCardSvg';
@@ -530,9 +527,10 @@ export const PriceTagMakerModal: React.FC<PriceTagMakerModalProps> = ({
               {/* Close Modal */}
               <button
                 onClick={onClose}
-                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-200/60 transition-colors ml-1"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 hover:bg-stone-200/80 border border-stone-200 hover:border-stone-300 transition-all cursor-pointer ml-1.5 shrink-0"
+                title="Close modal (Esc)"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[2]" />
               </button>
             </div>
           </div>

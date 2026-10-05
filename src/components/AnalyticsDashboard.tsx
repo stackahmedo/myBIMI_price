@@ -241,7 +241,7 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="h-80 w-full">
+        <div className="h-80 w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={productStockData}
@@ -348,7 +348,7 @@ export const AnalyticsDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="h-56 w-full mt-2">
+            <div className="h-56 w-full min-w-0 mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -422,7 +422,7 @@ export const AnalyticsDashboard: React.FC = () => {
               <span className="text-xs font-mono font-medium text-slate-500">Last 30 Days</span>
             </div>
 
-            <div className="h-64 w-full mt-2">
+            <div className="h-64 w-full min-w-0 mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={INITIAL_TREND_DATA}
